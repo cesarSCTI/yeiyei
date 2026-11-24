@@ -1,0 +1,9 @@
+*
+!yams/
+!yams/**
+yams/error_log
+yams/config/config.php
+**/*.Identifier
+!docker/
+!docker/config.php
+

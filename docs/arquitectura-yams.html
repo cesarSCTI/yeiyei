@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arquitectura de YAMS</title>
+<style>
+:root{font:16px/1.55 system-ui,sans-serif;color:#162c39;background:#f4f7f8}
+body{max-width:1160px;margin:auto;padding:0 24px 55px}
+header{background:#123342;color:white;padding:28px;border-radius:0 0 18px 18px}
+header p{margin-bottom:0} h1{margin:0;font-size:clamp(2rem,5vw,3.2rem)}
+nav{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:18px}
+a{color:#006658;text-underline-offset:3px} header a{color:#b3efe4}
+h2{border-bottom:2px solid #b6d6d1;padding-bottom:6px;margin-top:36px}
+h3{margin-top:0} code{overflow-wrap:anywhere;color:#184457} header code{color:inherit}
+.flow,.grid{display:grid;gap:12px}
+.flow{grid-template-columns:repeat(auto-fit,minmax(164px,1fr))}
+.grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.card,.flow div,details{background:#fff;border:1px solid #cbdadb;border-radius:12px;padding:14px}
+.flow div{border-top:4px solid #1a8172}.flow strong,.flow small{display:block}
+.relation{margin:10px 0;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.relation a{padding:4px 8px;background:#e8f4f0;border-radius:6px;font-family:monospace;font-weight:bold}
+.edge{border-bottom:2px solid #237466;font-size:.82rem}.logical{border-bottom-style:dashed}.missing{color:#8a3c16;border-color:#b25729}
+.scroll{overflow-x:auto} table{width:100%;border-collapse:collapse;background:white}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #d7e2e3;vertical-align:top}
+th{background:#e4eeef} .note{border-left:4px solid #b25729;padding:8px 12px;background:#fff3e9}
+details{margin:8px 0;scroll-margin-top:12px} summary{cursor:pointer;font-weight:bold}
+details table{font-size:.88rem} td code{white-space:normal} .meta{color:#425964}
+</style>
+<header>
+<h1>Arquitectura de YAMS</h1>
+<p>Aplicación PHP para clientes, clases de natación, pagos, finanzas y usuarios.</p>
+<nav aria-label="Secciones"><a href="#sistema">Sistema</a><a href="#relaciones">Relaciones</a><a href="#usuarios">Usuarios</a><a href="#pantallas">Pantallas y rutas</a><a href="#tablas">Diccionario de tablas</a></nav>
+</header>
+<main>
+<section id="sistema">
+<h2>Del navegador a MariaDB</h2>
+<div class="flow" aria-label="Flujo de una petición">
+<div><strong>1 · Navegador</strong><small>Vistas PHP, Bootstrap, CSS y JavaScript. Los formularios y las tablas usan peticiones fetch.</small></div>
+<div><strong>2 · Apache y PHP 8.4</strong><small><code>yams/index.php</code> inicia la sesión y entrega la petición al router.</small></div>
+<div><strong>3 · Router MVC</strong><small><code>?route=cliente/find</code> selecciona <code>ClienteController::find()</code>.</small></div>
+<div><strong>4 · Controlador y modelo</strong><small>El controlador procesa entradas. Los modelos consultan mediante <code>DB::pdo()</code>.</small></div>
+<div><strong>5 · MariaDB 11.4</strong><small>Docker Compose ejecuta <code>db</code> con almacenamiento persistente.</small></div>
+</div>
+<p>La respuesta vuelve como HTML con <code>layout/header.php</code> y <code>layout/footer.php</code>, o como JSON que el JavaScript usa para actualizar la pantalla. El servicio <code>web</code> sirve YAMS en el puerto local 8080. <code>phpmyadmin</code> es un servicio opcional en el puerto 8081 y accede a MariaDB para administración e importación.</p>
+<p>El código vive en <code>yams/app/{core,controllers,models,views}</code> y <code>yams/public</code>. El entorno se define en <code>compose.yaml</code>, <code>Dockerfile</code> y <code>docker/config.php</code>. El respaldo es <code>yeiyeisw_swimming.sql</code> y la guía de arranque está en <a href="GUIA-DOCKER-WSL.md">GUIA-DOCKER-WSL.md</a>.</p>
+</section>
+<section id="relaciones">
+<h2>Relaciones entre tablas</h2>
+<p><span class="edge">Línea continua</span> para claves foráneas en MariaDB. <span class="edge logical">Línea discontinua</span> para asociaciones que maneja el código. La flecha va de la entidad principal a sus registros asociados.</p>
+<div class="grid">
+<article class="card"><h3>Clientes y clases</h3>
+<div class="relation"><a href="#clientes">clientes</a><span class="edge">1 → N</span><a href="#clase_alumnos">clase_alumnos</a></div>
+<div class="relation"><a href="#clases">clases</a><span class="edge">1 → N</span><a href="#clase_alumnos">clase_alumnos</a></div>
+<div class="relation"><a href="#clientes">clientes</a><span class="edge logical">1 → N</span><a href="#cliente_horarios">cliente_horarios</a></div>
+<div class="relation"><a href="#tipoclases">tipoclases</a><span class="edge logical">nombre → texto</span><a href="#clientes">clientes</a></div>
+<p><code>clase_alumnos</code> permite que un cliente esté en varias clases y que una clase tenga varios alumnos. <code>cliente_horarios</code> guarda día y hora del cliente. El tipo se guarda en <code>clientes.tipo_clase</code> como texto.</p>
+</article>
+<article class="card"><h3>Instructores y horarios</h3>
+<div class="relation"><a href="#instructores">instructores</a><span class="edge">1 → N</span><a href="#clases">clases</a></div>
+<div class="relation"><a href="#instructores">instructores</a><span class="edge">1 → N</span><a href="#especialidades">especialidades</a></div>
+<div class="relation"><a href="#clases">clases</a><span class="edge logical missing">1 → N prevista</span><code>clase_horarios</code></div>
+<p>La FK <code>especialidades.instructor_id</code> admite NULL y tiene borrado en cascada. La ficha del instructor guarda además <code>instructores.especialidad</code> como texto.</p>
+<p class="note"><code>clases</code> guarda los días y el rango de horas. <code>ClaseHorario</code> intenta persistir intervalos por día en <code>clase_horarios</code> al crear o editar una clase. Esa tabla está ausente en el respaldo y la base local.</p>
+</article>
+<article class="card"><h3>Finanzas y registro</h3>
+<div class="relation"><a href="#clientes">clientes</a><span class="edge">1 → N</span><a href="#pagos">pagos</a></div>
+<div class="relation"><a href="#users">users</a><span class="edge">1 → N</span><a href="#logs">logs</a></div>
+<p><code>pagos.cliente_id</code> puede quedar en NULL al borrar el cliente. Finanzas agrega <a href="#pagos">pagos</a>, <a href="#ingresos_extras">ingresos extras</a> y <a href="#egresos">egresos</a> en el código.</p>
+<p><code>logs</code> relaciona el evento con su usuario. El par <code>entidad</code> y <code>entidad_id</code> describe el registro afectado mediante una referencia lógica.</p>
+<p><a href="#clientes_backup">clientes_backup</a> y <a href="#usersreplab">usersreplab</a> están presentes en el esquema. La búsqueda en el código MVC no mostró referencias a ellas.</p>
+</article>
+</div>
+</section>
+<section id="usuarios">
+<h2>Inicio de sesión y roles</h2>
+<div class="flow">
+<div><strong>Formulario de acceso</strong><small><code>auth/login</code> muestra <code>auth/login.php</code>.</small></div>
+<div><strong>Validación</strong><small><code>auth/signin</code> busca en <code>users</code> por <code>username</code> y comprueba el hash con <code>password_verify()</code>.</small></div>
+<div><strong>Sesión PHP</strong><small><code>$_SESSION['user']</code> conserva la identidad y el rol. <code>auth/logout</code> cierra la sesión.</small></div>
+</div>
+<div class="scroll"><table>
+<thead><tr><th>Rol</th><th>Interfaz y acceso según el código</th></tr></thead>
+<tbody>
+<tr><td>Administrador</td><td>Ve el menú de Usuarios y la sección de Finanzas. El listado y la edición en <code>UserController</code> exigen este rol.</td></tr>
+<tr><td>Operador</td><td>Es el rol predeterminado de la tabla. Ve la sección de ingresos diarios y puede acceder a Egresos, al igual que el Administrador.</td></tr>
+</tbody></table></div>
+<p class="note">El punto de entrada comprueba la sesión. Los controles de rol se aplican en determinadas acciones y en el menú. La administración de usuarios tiene comprobaciones de rol parciales, así que la visibilidad del menú por sí sola no define los permisos efectivos.</p>
+<p>Los instructores y los clientes son registros operativos. Las cuentas con inicio de sesión están en <code>users</code>, sin FK a esas dos tablas.</p>
+</section>
+<section id="pantallas">
+<h2>Pantallas, rutas y modelos</h2>
+<p>El dashboard arma la interfaz principal combinando vistas PHP. El pie carga <code>app.core.js</code>, <code>modules/app.part1.js</code>, <code>modules/app.part2.js</code> y <code>app.js</code> desde <code>yams/public/js</code>. Los módulos atienden formularios, modales, búsquedas y refrescos de secciones.</p>
+<div class="scroll"><table>
+<thead><tr><th>Área</th><th>Vistas en app/views</th><th>Rutas representativas</th><th>Modelos y datos</th></tr></thead>
+<tbody>
+<tr><td>Acceso</td><td><code>auth/login.php</code></td><td><code>auth/login</code>, <code>auth/signin</code>, <code>auth/logout</code></td><td><code>User</code>, sesión PHP</td></tr>
+<tr><td>Inicio</td><td><code>dashboard/index.php</code></td><td><code>dashboard/index</code>, <code>dashboard/resumen</code></td><td>Combina módulos. El resumen consulta clientes activos, estados de pago y clases activas.</td></tr>
+<tr><td>Clientes</td><td><code>clientes/index.php</code>, <code>clientes/form.php</code></td><td><code>cliente/index</code>, <code>cliente/find</code>, <code>cliente/store</code>, <code>cliente/update</code></td><td><code>Cliente</code>, <code>TipoClase</code>. El listado consulta el último pago del cliente y el formulario maneja horarios.</td></tr>
+<tr><td>Clases y alumnos</td><td><code>clases/index.php</code>, <code>clases/alumnos.php</code></td><td><code>clase/index</code>, <code>clase/store</code>, <code>clasealumno/index</code>, <code>clasealumno/assign</code></td><td><code>Clase</code>, <code>ClaseHorario</code>, <code>ClaseAlumno</code> e <code>Instructor</code>.</td></tr>
+<tr><td>Instructores</td><td><code>instructores/index.php</code>, <code>instructores/form.php</code></td><td><code>instructor/index</code>, <code>instructor/find</code>, <code>instructor/update</code></td><td><code>Instructor</code>. Maneja estados Activo y Suspendido.</td></tr>
+<tr><td>Catálogos</td><td>Controles del dashboard</td><td><code>tipoclase/*</code>, <code>especialidad/*</code></td><td><code>TipoClase</code>, <code>Especialidad</code>.</td></tr>
+<tr><td>Pagos</td><td><code>pagos/index.php</code></td><td><code>pago/index</code>, <code>pago/store</code>, <code>pago/historial</code>, <code>pago/update</code></td><td><code>Pago</code>. Guarda monto, forma de pago, fecha de pago y próximo vencimiento.</td></tr>
+<tr><td>Egresos</td><td><code>egresos/index.php</code></td><td><code>egreso/index</code>, <code>egreso/store</code>, <code>egreso/update</code></td><td><code>Egreso</code>. Registra concepto, monto, fecha y forma de pago.</td></tr>
+<tr><td>Finanzas e ingresos extras</td><td>Secciones de <code>dashboard/index.php</code></td><td><code>finanzas/resumen</code>, <code>finanzas/ingresosDiarios</code>, <code>finanzas/extrasList</code></td><td><code>Pago</code>, <code>Egreso</code>, <code>IngresoExtra</code>. El código incluye también <code>IngresoextraController</code> con acciones propias.</td></tr>
+<tr><td>Usuarios</td><td><code>users/index.php</code>, <code>users/form.php</code></td><td><code>user/index</code>, <code>user/store</code>, <code>user/update</code></td><td><code>User</code>. Persiste los datos de cuenta, el hash de contraseña y el rol.</td></tr>
+<tr><td>Bitácora</td><td><code>logs/index.php</code></td><td><code>log/index</code></td><td><code>Log</code> une los eventos a <code>users</code>. El modelo define una operación de escritura, sin llamadas activas identificadas desde los controladores.</td></tr>
+</tbody></table></div>
+<p class="note">La vista de Clases está incluida en el dashboard y tiene ruta propia. Su enlace de menú está comentado. <code>EspecialidadController::index()</code> solicita <code>especialidades/index.php</code>, ausente en el árbol de vistas.</p>
+</section>
+<section id="tablas">
+<h2>Diccionario de tablas</h2>
+<p>Abre cada ficha para ver sus columnas, tipos, nulabilidad, valores por defecto e índices. El diccionario se basa en las definiciones SQL del respaldo. MariaDB local confirma los nombres de las 14 tablas, sus motores y las seis claves foráneas. Todas son tablas base. Las vistas de pantalla se implementan en PHP.</p>
+<details id="clase_alumnos"><summary><code>clase_alumnos</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>clase_id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>cliente_id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>fecha_asignacion</code></td><td><code>date DEFAULT curdate()</code></td></tr>
+<tr><td><code>estado</code></td><td><code>enum(&#x27;Activo&#x27;,&#x27;Cancelado&#x27;,&#x27;Movido&#x27;) DEFAULT &#x27;Activo&#x27;</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD KEY `clase_id` (`clase_id`)</code></li>
+<li><code>ADD KEY `cliente_id` (`cliente_id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT</code></li>
+<li><code>ADD CONSTRAINT `clase_alumnos_ibfk_1` FOREIGN KEY (`clase_id`) REFERENCES `clases` (`id`)</code></li>
+<li><code>ADD CONSTRAINT `clase_alumnos_ibfk_2` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`)</code></li>
+</ul>
+</details>
+<details id="clases"><summary><code>clases</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>nombre</code></td><td><code>varchar(100) NOT NULL</code></td></tr>
+<tr><td><code>categoria</code></td><td><code>enum(&#x27;Adulto&#x27;,&#x27;Adolescente&#x27;,&#x27;Niño&#x27;) NOT NULL</code></td></tr>
+<tr><td><code>instructor_id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>dias</code></td><td><code>varchar(100) NOT NULL</code></td></tr>
+<tr><td><code>hora_inicio</code></td><td><code>time NOT NULL</code></td></tr>
+<tr><td><code>hora_fin</code></td><td><code>time NOT NULL</code></td></tr>
+<tr><td><code>estado</code></td><td><code>enum(&#x27;Activa&#x27;,&#x27;Cancelada&#x27;,&#x27;Reprogramada&#x27;) DEFAULT &#x27;Activa&#x27;</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD KEY `instructor_id` (`instructor_id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+<li><code>ADD CONSTRAINT `clases_ibfk_1` FOREIGN KEY (`instructor_id`) REFERENCES `instructores` (`id`)</code></li>
+</ul>
+</details>
+<details id="cliente_horarios"><summary><code>cliente_horarios</code> <span class="meta">· MyISAM</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>cliente_id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>dia</code></td><td><code>enum(&#x27;Lunes&#x27;,&#x27;Martes&#x27;,&#x27;Miércoles&#x27;,&#x27;Jueves&#x27;,&#x27;Viernes&#x27;,&#x27;Sábado&#x27;) NOT NULL</code></td></tr>
+<tr><td><code>hora</code></td><td><code>time NOT NULL</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD KEY `cliente_id` (`cliente_id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+<details id="clientes"><summary><code>clientes</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>nombre</code></td><td><code>varchar(150) NOT NULL</code></td></tr>
+<tr><td><code>telefono</code></td><td><code>varchar(50) DEFAULT NULL</code></td></tr>
+<tr><td><code>tipo_clase</code></td><td><code>varchar(100) DEFAULT NULL</code></td></tr>
+<tr><td><code>fecha_registro</code></td><td><code>datetime NOT NULL</code></td></tr>
+<tr><td><code>estado</code></td><td><code>varchar(50) DEFAULT &#x27;Activo&#x27;</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+<details id="clientes_backup"><summary><code>clientes_backup</code> <span class="meta">· MyISAM</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL DEFAULT 0</code></td></tr>
+<tr><td><code>nombre</code></td><td><code>varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL</code></td></tr>
+<tr><td><code>telefono</code></td><td><code>varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL</code></td></tr>
+<tr><td><code>tipo_clase</code></td><td><code>varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL</code></td></tr>
+<tr><td><code>fecha_registro</code></td><td><code>datetime NOT NULL</code></td></tr>
+<tr><td><code>estado</code></td><td><code>varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT &#x27;Activo&#x27;</code></td></tr>
+</tbody></table></div>
+<p>El respaldo define esta tabla sin clave primaria ni índices.</p>
+</details>
+<details id="egresos"><summary><code>egresos</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>concepto</code></td><td><code>varchar(255) DEFAULT NULL</code></td></tr>
+<tr><td><code>monto</code></td><td><code>decimal(10,2) DEFAULT NULL</code></td></tr>
+<tr><td><code>forma_pago</code></td><td><code>varchar(20) NOT NULL DEFAULT &#x27;Efectivo&#x27;</code></td></tr>
+<tr><td><code>fecha</code></td><td><code>date DEFAULT NULL</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+<details id="especialidades"><summary><code>especialidades</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>nombre</code></td><td><code>varchar(100) NOT NULL</code></td></tr>
+<tr><td><code>descripcion</code></td><td><code>text DEFAULT NULL</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+<tr><td><code>instructor_id</code></td><td><code>int(11) DEFAULT NULL</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD KEY `fk_especialidad_instructor` (`instructor_id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+<li><code>ADD CONSTRAINT `fk_especialidad_instructor` FOREIGN KEY (`instructor_id`) REFERENCES `instructores` (`id`) ON DELETE CASCADE</code></li>
+</ul>
+</details>
+<details id="ingresos_extras"><summary><code>ingresos_extras</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>evento</code></td><td><code>varchar(150) NOT NULL</code></td></tr>
+<tr><td><code>fecha</code></td><td><code>date NOT NULL</code></td></tr>
+<tr><td><code>costo</code></td><td><code>decimal(10,2) NOT NULL DEFAULT 0.00</code></td></tr>
+<tr><td><code>forma_pago</code></td><td><code>varchar(50) NOT NULL DEFAULT &#x27;Efectivo&#x27;</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+<details id="instructores"><summary><code>instructores</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>nombre</code></td><td><code>varchar(150) NOT NULL</code></td></tr>
+<tr><td><code>telefono</code></td><td><code>varchar(50) NOT NULL</code></td></tr>
+<tr><td><code>especialidad</code></td><td><code>varchar(100) NOT NULL</code></td></tr>
+<tr><td><code>fecha_registro</code></td><td><code>datetime DEFAULT current_timestamp()</code></td></tr>
+<tr><td><code>estado</code></td><td><code>enum(&#x27;Activo&#x27;,&#x27;Suspendido&#x27;) DEFAULT &#x27;Activo&#x27;</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+<details id="logs"><summary><code>logs</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>user_id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>accion</code></td><td><code>varchar(50) NOT NULL</code></td></tr>
+<tr><td><code>entidad</code></td><td><code>varchar(50) NOT NULL</code></td></tr>
+<tr><td><code>entidad_id</code></td><td><code>int(11) DEFAULT NULL</code></td></tr>
+<tr><td><code>descripcion</code></td><td><code>text DEFAULT NULL</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD KEY `user_id` (`user_id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT</code></li>
+<li><code>ADD CONSTRAINT `logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)</code></li>
+</ul>
+</details>
+<details id="pagos"><summary><code>pagos</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>cliente_id</code></td><td><code>int(11) DEFAULT NULL</code></td></tr>
+<tr><td><code>monto</code></td><td><code>decimal(10,2) NOT NULL</code></td></tr>
+<tr><td><code>forma_pago</code></td><td><code>varchar(50) DEFAULT &#x27;Efectivo&#x27;</code></td></tr>
+<tr><td><code>fecha_pago</code></td><td><code>datetime DEFAULT current_timestamp()</code></td></tr>
+<tr><td><code>proximo_pago</code></td><td><code>date DEFAULT NULL</code></td></tr>
+<tr><td><code>estado</code></td><td><code>varchar(50) DEFAULT &#x27;Por Vencer&#x27;</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD KEY `cliente_id` (`cliente_id`)</code></li>
+<li><code>ADD KEY `idx_pagos_cliente_id_id` (`cliente_id`,`id`)</code></li>
+<li><code>ADD KEY `idx_pagos_fecha_pago` (`fecha_pago`)</code></li>
+<li><code>ADD KEY `idx_pagos_proximo_pago` (`proximo_pago`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+<li><code>ADD CONSTRAINT `pagos_ibfk_1` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE SET NULL</code></li>
+</ul>
+</details>
+<details id="tipoclases"><summary><code>tipoclases</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>nombre</code></td><td><code>varchar(100) NOT NULL</code></td></tr>
+<tr><td><code>descripcion</code></td><td><code>text DEFAULT NULL</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+<details id="users"><summary><code>users</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>username</code></td><td><code>varchar(50) NOT NULL</code></td></tr>
+<tr><td><code>password</code></td><td><code>varchar(255) NOT NULL</code></td></tr>
+<tr><td><code>name</code></td><td><code>varchar(100) DEFAULT NULL</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+<tr><td><code>role</code></td><td><code>enum(&#x27;Administrador&#x27;,&#x27;Operador&#x27;) NOT NULL DEFAULT &#x27;Operador&#x27;</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD UNIQUE KEY `username` (`username`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+<details id="usersreplab"><summary><code>usersreplab</code> <span class="meta">· InnoDB</span></summary>
+<div class="scroll"><table><thead><tr><th>Columna</th><th>Definición SQL</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>int(11) NOT NULL</code></td></tr>
+<tr><td><code>username</code></td><td><code>varchar(64) NOT NULL</code></td></tr>
+<tr><td><code>password_hash</code></td><td><code>varchar(255) NOT NULL</code></td></tr>
+<tr><td><code>created_at</code></td><td><code>timestamp NOT NULL DEFAULT current_timestamp()</code></td></tr>
+</tbody></table></div>
+<p>Claves, índices y atributos</p><ul>
+<li><code>ADD PRIMARY KEY (`id`)</code></li>
+<li><code>ADD UNIQUE KEY `username` (`username`)</code></li>
+<li><code>MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT</code></li>
+</ul>
+</details>
+</section>
+</main>
+<script>
+function openLinkedTable() {
+  const target = document.getElementById(location.hash.slice(1));
+  if (target instanceof HTMLDetailsElement) target.open = true;
+}
+window.addEventListener('hashchange', openLinkedTable);
+openLinkedTable();
+</script>
+</html>
