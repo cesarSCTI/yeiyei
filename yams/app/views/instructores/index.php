@@ -1,15 +1,16 @@
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="fas fa-chalkboard-teacher me-2"></i>Gestión de Instructores</h2>
-    <button class="btn btn-primary" onclick="showAddInstructorModal()">
-        <i class="fas fa-plus me-2"></i>Nuevo Instructor
-    </button>
-</div>
+<h2 class="yams-page-title"><i class="fas fa-chalkboard-teacher me-2"></i>Gestión de Instructores</h2>
 
-<div class="card table-container">
+<div class="card yams-panel">
+    <div class="yams-panel-header">
+        <h5 class="yams-panel-title"><i class="fas fa-id-badge"></i>Instructores</h5>
+        <button class="btn btn-primary" onclick="showAddInstructorModal()">
+            <i class="fas fa-plus me-2"></i>Nuevo Instructor
+        </button>
+    </div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">
-                <thead class="table-primary">
+                <thead>
                     <tr>
                         <th>ID</th>
                         <th>Nombre</th>
@@ -57,16 +58,16 @@
 
 <?php include "app/views/instructores/form.php"; ?>
 
-<hr>
-<h3><i class="fas fa-list me-2"></i>Especialidades</h3>
-<button class="btn btn-primary mb-3" onclick="showAddEspecialidadModal()">
-    <i class="fas fa-plus"></i> Agregar Especialidad
-</button>
-
-<div class="card">
+<div class="card yams-panel">
+  <div class="yams-panel-header">
+    <h5 class="yams-panel-title"><i class="fas fa-list"></i>Especialidades</h5>
+    <button class="btn btn-primary" onclick="showAddEspecialidadModal()">
+      <i class="fas fa-plus me-1"></i> Agregar Especialidad
+    </button>
+  </div>
   <div class="card-body">
     <table class="table table-striped">
-      <thead class="table-info">
+      <thead>
         <tr>
           <th>Nombre</th>
           <th>Descripción</th>

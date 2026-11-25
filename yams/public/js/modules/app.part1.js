@@ -619,9 +619,11 @@
         .then(r => r.text())
         .then(html => {
             const doc = new DOMParser().parseFromString(html, "text/html");
-            const newBody = doc.querySelector("table tbody");
-            const target = document.querySelector("#pagosContent table tbody");
-            if (newBody && target) target.innerHTML = newBody.innerHTML;
+            const newBody = doc.querySelector("#tablaPagos tbody");
+            if (newBody) {
+                YamsTabla.reemplazarFilas("#tablaPagos", newBody.innerHTML, { buscador: false });
+                if (typeof aplicarFiltrosPagos === "function") aplicarFiltrosPagos();
+            }
         });
     }
 
@@ -657,6 +659,7 @@
             row.querySelector("td:nth-child(1)").textContent = pago.cliente;
             row.querySelector("td:nth-child(2)").textContent =
                 "$" + parseFloat(pago.monto).toFixed(2);
+            row.querySelector("td:nth-child(2)").dataset.monto = parseFloat(pago.monto) || 0;
             row.querySelector("td:nth-child(3)").textContent = fechaSolo;
             row.querySelector("td:nth-child(4)").textContent = pago.proximo_pago;
             row.querySelector("td:nth-child(5)").innerHTML = `
@@ -713,7 +716,20 @@
             </button>
             `;
 
-            row.querySelector("td:nth-child(7)").innerHTML = accionesHTML;
+            // Forma de pago (ajuste 06)
+            const forma = pago.forma_pago || "";
+            const celdaForma = row.querySelector("td:nth-child(7)");
+            celdaForma.dataset.search = forma;
+            celdaForma.innerHTML = "";
+            const badgeForma = document.createElement("span");
+            badgeForma.className = "badge yams-forma yams-forma-" + forma.toLowerCase();
+            badgeForma.textContent = forma || "—";
+            celdaForma.appendChild(badgeForma);
+
+            row.querySelector("td:nth-child(8)").innerHTML = accionesHTML;
+
+            // La tabla está paginada: avisar a DataTables del cambio en la fila
+            YamsTabla.refrescar("#tablaPagos", row);
             }
 
             // Cerrar modal
@@ -898,9 +914,8 @@
         .then(r => r.text())
         .then(html => {
             const doc = new DOMParser().parseFromString(html, "text/html");
-            const newBody = doc.querySelector("table tbody");
-            const target = document.querySelector("#egresosContent table tbody");
-            if (newBody && target) target.innerHTML = newBody.innerHTML;
+            const newBody = doc.querySelector("#tablaEgresos tbody");
+            if (newBody) YamsTabla.reemplazarFilas("#tablaEgresos", newBody.innerHTML, { buscador: false });
         });
     }
 

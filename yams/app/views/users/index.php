@@ -1,14 +1,15 @@
-<div class="d-flex justify-content-between mb-3">
-  <h2><i class="fas fa-users"></i> Usuarios</h2>
-  <button class="btn btn-primary" onclick="showAddUserModal()">
-    <i class="fas fa-plus"></i> Nuevo Usuario
-  </button>
-</div>
+<h2 class="yams-page-title"><i class="fas fa-user-cog me-2"></i>Usuarios</h2>
 
-<div class="card">
+<div class="card yams-panel">
+  <div class="yams-panel-header">
+    <h5 class="yams-panel-title"><i class="fas fa-users-cog"></i>Usuarios del sistema</h5>
+    <button class="btn btn-primary" onclick="showAddUserModal()">
+      <i class="fas fa-plus me-1"></i> Nuevo Usuario
+    </button>
+  </div>
   <div class="card-body">
     <table class="table table-hover">
-      <thead class="table-dark">
+      <thead>
         <tr>
           <th>ID</th>
           <th>Usuario</th>

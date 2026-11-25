@@ -1,35 +1,61 @@
 <div class="container-fluid p-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-credit-card me-2"></i>Control de Pagos</h2>
-        <div class="d-flex gap-3 mb-3 align-items-center">
-          
-          <input 
-            type="text" 
+    <h2 class="yams-page-title"><i class="fas fa-credit-card me-2"></i>Control de Pagos</h2>
+
+    <div class="card yams-panel">
+    <div class="yams-panel-header">
+        <h5 class="yams-panel-title"><i class="fas fa-receipt"></i>Pagos</h5>
+        <div class="yams-toolbar-actions">
+
+          <input
+            type="text"
             id="buscarPagoInput"
-            class="form-control"
+            class="form-control yams-buscador"
             placeholder="Buscar por nombre de cliente..."
-            style="max-width: 300px;"
           >
 
-          <select id="filtroEstadoPago" class="form-select" style="max-width: 180px;">
+          <select id="filtroEstadoPago" class="form-select">
             <option value="">Todos</option>
             <option value="Pagado">Pagado</option>
             <option value="Por Vencer">Por Vencer</option>
             <option value="Vencido">Vencido</option>
           </select>
 
+          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddPago">
+              <i class="fas fa-plus me-2"></i>Registrar Pago
+          </button>
         </div>
-        
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddPago">
-            <i class="fas fa-plus me-2"></i>Registrar Pago
-        </button>
     </div>
-
-    <div class="card table-container">
         <div class="card-body">
+            <!-- Filtros de consulta: forma de pago y rango de fechas -->
+            <div class="yams-filtros">
+                <div class="yams-filtro">
+                    <label for="filtroFormaPago">Forma de pago</label>
+                    <select id="filtroFormaPago" class="form-select">
+                        <option value="">Todas</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                </div>
+                <div class="yams-filtro">
+                    <label for="pagoDesde">Pagado desde</label>
+                    <input type="date" id="pagoDesde" class="form-control">
+                </div>
+                <div class="yams-filtro">
+                    <label for="pagoHasta">Hasta</label>
+                    <input type="date" id="pagoHasta" class="form-control">
+                </div>
+                <button type="button" class="btn btn-outline-secondary yams-limpiar" id="limpiarFiltrosPagos">
+                    <i class="fas fa-eraser me-1"></i>Limpiar
+                </button>
+            </div>
+
+            <!-- Totales por forma de pago (según los filtros aplicados) -->
+            <div class="yams-totales" id="totalesPagos" aria-live="polite"></div>
+
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-primary">
+                <table class="table table-hover" id="tablaPagos">
+                    <thead>
                         <tr>
                             <th>Cliente</th>
                             <th>Monto</th>        
@@ -37,6 +63,7 @@
                             <th>Próximo Pago</th>
                             <th>Estado</th>
                             <th>Días Restantes</th>
+                            <th>Forma de Pago</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -45,7 +72,7 @@
                             <?php foreach($pagos as $p): ?>
                             <tr class="<?= $p['proximo_pago'] < date('Y-m-d') ? 'payment-expired' : ($p['proximo_pago'] <= date('Y-m-d', strtotime('+3 days')) ? 'payment-due-soon' : 'payment-current') ?>">
                                 <td><?= htmlspecialchars($p['cliente']) ?></td>
-                                <td>$<?= number_format($p['monto'],2) ?></td>
+                                <td data-monto="<?= (float)$p['monto'] ?>">$<?= number_format($p['monto'],2) ?></td>
                                 <td><?= $p['fecha_pago'] ?></td>
                                 <td><?= $p['proximo_pago'] ?></td>
                                 <td>
@@ -57,6 +84,10 @@
                                 </td>
                                 <td class="<?= $p['proximo_pago'] < date('Y-m-d') ? 'text-danger fw-bold' : 'text-success fw-bold' ?>">
                                     <?= (intval((strtotime($p['proximo_pago'])-time())/86400)) ?> días
+                                </td>
+                                <?php $forma = $p['forma_pago'] ?? ''; ?>
+                                <td data-search="<?= htmlspecialchars($forma) ?>">
+                                    <span class="badge yams-forma yams-forma-<?= strtolower(htmlspecialchars($forma)) ?>"><?= htmlspecialchars($forma ?: '—') ?></span>
                                 </td>
                                 <td>
                                     <!-- Botón verde (editar / marcar pagado) -->
@@ -101,7 +132,7 @@
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" class="text-center">No hay pagos registrados</td>
+                                <td colspan="8" class="text-center">No hay pagos registrados</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -172,7 +203,6 @@
             </div>
         </div>
     </div>
-</div>
 
 <!-- Modal Editar Pago -->
 <!--<div class="modal fade" id="modalEditPago" tabindex="-1">-->
@@ -434,6 +464,11 @@
 
 <script>
 $(document).ready(function() {
+  // Tabla principal de pagos: paginada, con scroll interno.
+  // El buscador y el filtro de estado propios de la vista la filtran (app.part2.js).
+  YamsTabla.init('#tablaPagos', { buscador: false });
+  if (typeof prepararFiltrosPagos === 'function') prepararFiltrosPagos();
+
   $('#tablaClientesPago').DataTable({
     pageLength: 5,
     language: { url: '//cdn.datatables.net/plug-ins/1.13.5/i18n/es-ES.json' }

@@ -1,4 +1,9 @@
 <?php
+// ========= ZONA HORARIA =========
+// Todo el sistema trabaja en hora de México (fechas de pago, "hoy", reportes).
+// DB.php alinea la sesión de MariaDB con esta misma zona.
+date_default_timezone_set('America/Mexico_City');
+
 // ========= SESIÓN PERSISTENTE =========
 ini_set('session.gc_maxlifetime', 60 * 60 * 8); // 8 horas
 session_set_cookie_params([

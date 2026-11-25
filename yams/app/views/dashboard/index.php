@@ -73,14 +73,17 @@
 
                     <!-- ========== DASHBOARD ========== -->
                     <div id="dashboardContent">
-                        <h2 class="mb-4">
+                        <h2 class="yams-page-title">
                             <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                         </h2>
 
-                        <!-- Tarjetas resumen -->
+                        <!-- Tarjetas resumen: cada recuadro lleva al módulo relacionado -->
+                        <?php $seccionIngresos = $role === 'Administrador' ? 'finanzas' : 'ingresos'; ?>
                         <div class="row mb-4">
-                            <div class="col-md-3">
-                                <div class="card stats-card">
+                            <div class="col-sm-6 col-md-3 mb-3">
+                                <div class="card stats-card dashboard-link" role="button" tabindex="0"
+                                     data-section="clientes" data-estado-pago=""
+                                     title="Ver clientes">
                                     <div class="dashboard-stat">
                                         <i class="fas fa-users"></i>
                                         <div class="animate-number text-white" id="totalClientes">0</div>
@@ -88,8 +91,10 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="card stats-card">
+                            <div class="col-sm-6 col-md-3 mb-3">
+                                <div class="card stats-card dashboard-link" role="button" tabindex="0"
+                                     data-section="clientes" data-estado-pago="Vencido"
+                                     title="Ver clientes con pago vencido">
                                     <div class="dashboard-stat">
                                         <i class="fas fa-exclamation-triangle text-warning"></i>
                                         <div class="animate-number text-white" id="totalVencidos">0</div>
@@ -97,58 +102,150 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="card stats-card">
+                            <div class="col-sm-6 col-md-3 mb-3">
+                                <div class="card stats-card dashboard-link" role="button" tabindex="0"
+                                     data-section="clientes" data-estado-pago="Por Vencer"
+                                     title="Ver clientes con pago por vencer">
                                     <div class="dashboard-stat">
-                                        <i class="fas fa-dollar-sign"></i>
+                                        <i class="fas fa-clock"></i>
                                         <div class="animate-number text-white" id="totalPorVencer">0</div>
                                         <p class="mb-0">Pagos por Vencer</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="card stats-card">
+                            <div class="col-sm-6 col-md-3 mb-3">
+                                <div class="card stats-card dashboard-link" role="button" tabindex="0"
+                                     data-section="<?= $seccionIngresos ?>"
+                                     title="Ver ingresos">
                                     <div class="dashboard-stat">
-                                        <i class="fas fa-swimming-pool"></i>
-                                        <div class="animate-number text-white" id="totalClases">0</div>
-                                        <p class="mb-0">Clases</p>
+                                        <i class="fas fa-dollar-sign"></i>
+                                        <div class="animate-number text-white" id="totalIngresosMes">$0</div>
+                                        <p class="mb-0">Ingresos del Mes</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Gráfica + Notificaciones -->
+                        <?php
+                        // ===== Por cobrar: clientes con último pago vencido o por vencer =====
+                        // Misma lógica de estado que la tabla de Clientes (Cliente::all()).
+                        $porCobrar = array_values(array_filter($clientes ?? [], function ($c) {
+                            return in_array($c['estado_pago'] ?? '', ['Por Vencer', 'Vencido'], true);
+                        }));
+                        // Primero lo más urgente: por vencer (0, 1, 2… días) y luego vencidos recientes (-1, -2…)
+                        usort($porCobrar, function ($a, $b) {
+                            $da = (int)$a['dias_restantes'];
+                            $db = (int)$b['dias_restantes'];
+                            $grupoA = $da >= 0 ? 0 : 1;
+                            $grupoB = $db >= 0 ? 0 : 1;
+                            if ($grupoA !== $grupoB) return $grupoA <=> $grupoB;
+                            return $grupoA === 0 ? $da <=> $db : $db <=> $da;
+                        });
+                        $totalPorVencer = count(array_filter($porCobrar, fn($c) => $c['estado_pago'] === 'Por Vencer'));
+                        $totalVencidos  = count($porCobrar) - $totalPorVencer;
+                        ?>
+
                         <div class="row">
-                            <div class="col-md-8">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5><i class="fas fa-chart-area me-2"></i>Ingresos por Mes</h5>
+                            <!-- ===== Hoy ===== -->
+                            <div class="col-lg-4">
+                                <div class="card yams-panel">
+                                    <div class="yams-panel-header">
+                                        <h5 class="yams-panel-title"><i class="fas fa-cash-register"></i>Hoy</h5>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-section="<?= $seccionIngresos ?>" data-dashboard-ir>
+                                            Ver ingresos <i class="fas fa-arrow-right ms-1"></i>
+                                        </button>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="ingresosChart" height="100"></canvas>
+                                        <div class="hoy-total">
+                                            <span class="hoy-label">Cobrado hoy</span>
+                                            <span class="hoy-monto" id="hoyCobrado">$0</span>
+                                        </div>
+                                        <ul class="hoy-lista">
+                                            <li><span><i class="fas fa-money-bill-wave text-success"></i>Efectivo</span><strong id="hoyEfectivo">$0</strong></li>
+                                            <li><span><i class="fas fa-credit-card text-primary"></i>Tarjeta</span><strong id="hoyTarjeta">$0</strong></li>
+                                            <li><span><i class="fas fa-exchange-alt text-warning"></i>Transferencia</span><strong id="hoyTransferencia">$0</strong></li>
+                                            <li class="hoy-sep"><span><i class="fas fa-arrow-down text-danger"></i>Egresos</span><strong id="hoyEgresos" class="text-danger">$0</strong></li>
+                                            <li><span><i class="fas fa-scale-balanced"></i>Balance</span><strong id="hoyBalance">$0</strong></li>
+                                        </ul>
+                                        <small class="text-muted">Incluye pagos e ingresos extra del día.</small>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5><i class="fas fa-bell me-2"></i>Notificaciones</h5>
+
+                            <!-- ===== Ingresos de los últimos 12 meses ===== -->
+                            <div class="col-lg-8">
+                                <div class="card yams-panel">
+                                    <div class="yams-panel-header">
+                                        <h5 class="yams-panel-title"><i class="fas fa-chart-column"></i>Ingresos de los últimos 12 meses</h5>
+                                        <small class="text-muted" id="ingresosAnualTotal"></small>
                                     </div>
                                     <div class="card-body">
-                                        <!-- Mensajes -->
-                                        <!-- <div class="alert alert-warning">
-                                            <i class="fas fa-exclamation-triangle me-2"></i>
-                                            8 pagos vencidos requieren atención
+                                        <div class="grafica-ingresos">
+                                            <canvas id="ingresosChart" aria-label="Ingresos por mes de los últimos 12 meses" role="img"></canvas>
                                         </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            15 pagos vencen en 3 días
-                                        </div>
-                                        <div class="alert alert-success">
-                                            <i class="fas fa-check-circle me-2"></i>
-                                            Clase de natación infantil completa
-                                        </div>-->
+                                        <small class="text-muted">Clic en una barra para ver Ingresos.</small>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== Por cobrar ===== -->
+                        <div class="card yams-panel">
+                            <div class="yams-panel-header">
+                                <h5 class="yams-panel-title"><i class="fas fa-hand-holding-dollar"></i>Por cobrar</h5>
+                                <div class="btn-group" role="group" aria-label="Filtrar por estado" id="filtroPorCobrar">
+                                    <button type="button" class="btn btn-outline-warning" data-estado="Por Vencer">Por vencer <span class="badge bg-warning text-dark ms-1"><?= $totalPorVencer ?></span></button>
+                                    <button type="button" class="btn btn-outline-danger" data-estado="Vencido">Vencidos <span class="badge bg-danger ms-1"><?= $totalVencidos ?></span></button>
+                                    <button type="button" class="btn btn-outline-secondary" data-estado="">Todos</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle" id="tablaPorCobrar">
+                                        <thead>
+                                            <tr>
+                                                <th>Cliente</th>
+                                                <th>Teléfono</th>
+                                                <th>Tipo de clase</th>
+                                                <th>Próximo pago</th>
+                                                <th>Días</th>
+                                                <th>Estado</th>
+                                                <th class="text-center">Recordatorio</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($porCobrar as $c):
+                                                $dias = (int)$c['dias_restantes'];
+                                                $estado = $c['estado_pago'];
+                                            ?>
+                                            <tr>
+                                                <td class="fw-semibold"><?= htmlspecialchars($c['nombre'] ?? '') ?></td>
+                                                <td><?= htmlspecialchars($c['telefono'] ?? '') ?></td>
+                                                <td><?= htmlspecialchars($c['tipo_clase'] ?? '') ?></td>
+                                                <td><?= htmlspecialchars(substr((string)($c['proximo_pago'] ?? ''), 0, 10)) ?></td>
+                                                <td data-order="<?= $dias ?>" class="fw-bold <?= $dias < 0 ? 'text-danger' : 'text-warning' ?>">
+                                                    <?= $dias === 0 ? 'Hoy' : ($dias < 0 ? 'Hace ' . abs($dias) . ' d' : 'En ' . $dias . ' d') ?>
+                                                </td>
+                                                <td data-search="<?= htmlspecialchars($estado) ?>">
+                                                    <span class="badge bg-<?= $estado === 'Vencido' ? 'danger' : 'warning text-dark' ?>"><?= htmlspecialchars($estado) ?></span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <?php if (!empty($c['telefono'])): ?>
+                                                    <button type="button" class="btn btn-sm btn-success btn-reminder"
+                                                            data-telefono="<?= htmlspecialchars($c['telefono']) ?>"
+                                                            data-estado="<?= htmlspecialchars($estado) ?>"
+                                                            data-cliente="<?= htmlspecialchars($c['nombre'] ?? '') ?>"
+                                                            title="Enviar recordatorio por WhatsApp">
+                                                        <i class="fab fa-whatsapp"></i>
+                                                    </button>
+                                                    <?php else: ?>
+                                                    <span class="text-muted small">Sin teléfono</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -196,7 +293,7 @@
                     <!-- Finanzas -->
                     <?php if ($_SESSION["user"]["role"] === "Administrador"): ?>
                     <div id="finanzasContent" style="display:none;">
-                    <h2 class="mb-4 text-primary">
+                    <h2 class="yams-page-title">
                         <i class="fas fa-chart-line me-2"></i>Ingresos y Egresos
                     </h2>
 
@@ -240,7 +337,7 @@
                     </div>
 
                     <!-- ========== FILA 2: INGRESOS EXTRA POR TIPO DE PAGO ========== -->
-                    <h4 class="mt-3 mb-3 text-primary">
+                    <h4 class="yams-section-label">
                         <i class="fas fa-plus-circle me-2"></i>Ingresos Extra
                     </h4>
 
@@ -311,10 +408,10 @@
                     </div>
 
                     <!-- Resumen diario del mes actual -->
-                    <div class="card mt-4 shadow-sm border-0">
-                    <div class="card-header bg-gradient-info text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                        <i class="fas fa-calendar-day me-2 "></i>Ingresos por día (mes en curso)
+                    <div class="card yams-panel mt-4">
+                    <div class="yams-panel-header">
+                        <h5 class="yams-panel-title">
+                        <i class="fas fa-calendar-day"></i>Ingresos por día (mes en curso)
                         </h5>
                         <small class="text-muted" id="labelMesIngresosDiarios"></small>
                     </div>
@@ -349,17 +446,18 @@
                     </div>
 
                     <!-- ========= TABLA + MODAL DE INGRESOS EXTRAS ========= -->
-                    <div class="card mt-4 shadow-sm border-0">
-                        <div class="card-header bg-gradient-info text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Ingresos Extras</h5>
-                        <button class="btn btn-sm btn-light text-primary" data-bs-toggle="modal" data-bs-target="#modalIngresoExtra">
-                            <i class="fas fa-plus"></i> Nuevo
+                    <div class="card yams-panel">
+                        <div class="yams-panel-header">
+                        <h5 class="yams-panel-title"><i class="fas fa-plus-circle"></i>Ingresos Extras</h5>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalIngresoExtra">
+                            <i class="fas fa-plus me-1"></i> Registrar Ingreso Extra
                         </button>
                         </div>
                         <div class="card-body">
+                        <?php include __DIR__ . '/_filtros_extras.php'; ?>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                            <thead class="table-primary">
+                            <table class="table table-hover align-middle" id="tablaExtras">
+                            <thead>
                                 <tr>
                                 <th>Evento</th>
                                 <th>Fecha</th>
@@ -423,7 +521,7 @@
                     <?php endif; ?>
                     <?php if ($role === 'Operador'): ?>
                         <div id="ingresosContent" style="display:none;">
-                            <h2 class="mb-4 text-primary">
+                            <h2 class="yams-page-title">
                                 <i class="fas fa-coins me-2"></i>Ingresos
                             </h2>
 
@@ -468,7 +566,7 @@
                             </div>
 
                             <!-- INGRESOS EXTRA -->
-                            <h4 class="mt-3 mb-3 text-primary">
+                            <h4 class="yams-section-label">
                                 <i class="fas fa-plus-circle me-2"></i>Ingresos Extra</h4>
 
                             <div class="row text-center mb-4 finance-cards">
@@ -530,17 +628,19 @@
                                 </div>
                             </div>
 
-                            <!-- Botón + tabla (lo que ya tenías) -->
-                            <div class="d-flex justify-content-end mb-3">
+                            <!-- Panel de ingresos extra -->
+                            <div class="card yams-panel">
+                            <div class="yams-panel-header">
+                                <h5 class="yams-panel-title"><i class="fas fa-plus-circle"></i>Ingresos Extras</h5>
                                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalIngresoExtra">
-                                    <i class="fas fa-plus me-2"></i>Registrar Ingreso Extra
+                                    <i class="fas fa-plus me-1"></i> Registrar Ingreso Extra
                                 </button>
                             </div>
-
+                            <div class="card-body">
+                            <?php include __DIR__ . '/_filtros_extras.php'; ?>
                             <div class="table-responsive">
-                                <!-- aquí sigue tu tabla tal cual ya estaba -->
 
-                            <table class="table table-striped align-middle">
+                            <table class="table table-striped align-middle" id="tablaExtras">
                                 <thead>
                                     <tr>
                                         <th>Evento</th>
@@ -556,6 +656,8 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        </div>
                         </div>
 
                         <!-- Modal Ingreso Extra -->
@@ -612,7 +714,12 @@
         </div><!-- /row -->
     </div><!-- /container-fluid -->
 </div><!-- /dashboardSection -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
+const formatoMonedaDashboard = new Intl.NumberFormat("es-MX", {
+  style: "currency", currency: "MXN", maximumFractionDigits: 0
+});
+
 async function actualizarDashboard() {
   try {
     const res = await fetch("index.php?route=dashboard/resumen");
@@ -624,21 +731,256 @@ async function actualizarDashboard() {
     document.getElementById("totalClientes").textContent = data.clientes;
     document.getElementById("totalVencidos").textContent = data.vencidos;
     document.getElementById("totalPorVencer").textContent = data.porVencer;
-    document.getElementById("totalClases").textContent = data.clases;
+    document.getElementById("totalIngresosMes").textContent = formatoMonedaDashboard.format(data.ingresosMes);
 
   } catch (err) {
     console.error("Error al actualizar dashboard:", err);
   }
 }
 
+// Abre el módulo del recuadro usando el mismo enlace del menú lateral,
+// para que se ejecute la misma lógica que al navegar manualmente.
+function irDesdeDashboard(card) {
+  const section = card.dataset.section;
+  const navLink = document.querySelector(`.sidebar .nav-link[onclick*="'${section}'"]`);
+  showSection(section, navLink);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  if (section === "clientes") aplicarFiltroClientesDesdeDashboard(card.dataset.estadoPago || "");
+}
+
+// Deja la tabla de Clientes mostrando solo el estado de pago elegido
+// (limpia los demás filtros para que el total coincida con el recuadro).
+function aplicarFiltroClientesDesdeDashboard(estadoPago) {
+  if (!window.jQuery || !$.fn.DataTable || !$.fn.DataTable.isDataTable("#tablaClientes")) return;
+
+  const tabla = $("#tablaClientes").DataTable();
+  $("#filtroTipoClaseClientes").val("");
+  $("#searchClientes").val("");
+  tabla.search("").column(3).search("");
+
+  // El handler de 'change' del filtro aplica la búsqueda y redibuja
+  $("#filtroEstadoPagoClientes").val(estadoPago).trigger("change");
+  tabla.columns.adjust();
+}
+
+document.querySelectorAll("#dashboardContent .dashboard-link").forEach(card => {
+  card.addEventListener("click", () => irDesdeDashboard(card));
+  card.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      irDesdeDashboard(card);
+    }
+  });
+});
+
+// Botones "Ver ingresos" y similares dentro de los paneles
+document.querySelectorAll("#dashboardContent [data-dashboard-ir]").forEach(btn => {
+  btn.addEventListener("click", () => irDesdeDashboard(btn));
+});
+
+// ===== Panel "Hoy": mismos totales que la pantalla de Ingresos (día actual) =====
+async function actualizarHoyDashboard() {
+  try {
+    const res = await fetch("index.php?route=finanzas/resumen&scope=day");
+    const f = await res.json();
+    if (!f.ok) throw new Error("Respuesta inválida del servidor");
+
+    const fmt = v => formatoMonedaDashboard.format(v || 0);
+    document.getElementById("hoyCobrado").textContent       = fmt(f.ingresos);
+    document.getElementById("hoyEfectivo").textContent      = fmt(f.efectivo + f.extra_efectivo);
+    document.getElementById("hoyTarjeta").textContent       = fmt(f.tarjeta + f.extra_tarjeta);
+    document.getElementById("hoyTransferencia").textContent = fmt(f.transferencia + f.extra_transferencia);
+    document.getElementById("hoyEgresos").textContent       = fmt(f.egresos);
+
+    const balance = document.getElementById("hoyBalance");
+    balance.textContent = fmt(f.balance);
+    balance.className = f.balance < 0 ? "text-danger" : "text-success";
+  } catch (err) {
+    console.error("Error al actualizar el panel Hoy:", err);
+  }
+}
+
+// ===== Gráfica: ingresos de los últimos 12 meses =====
+let graficaIngresos = null;
+
+async function cargarGraficaIngresos() {
+  const canvas = document.getElementById("ingresosChart");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  try {
+    const res = await fetch("index.php?route=dashboard/ingresosMensuales");
+    const data = await res.json();
+    if (!data.ok) throw new Error("Respuesta inválida del servidor");
+
+    const etiquetas = data.meses.map(m => {
+      const [anio, mes] = m.mes.split("-").map(Number);
+      const txt = new Date(anio, mes - 1, 1).toLocaleDateString("es-MX", { month: "short", year: "2-digit" });
+      return txt.charAt(0).toUpperCase() + txt.slice(1);
+    });
+    const pagos  = data.meses.map(m => m.pagos);
+    const extras = data.meses.map(m => m.extras);
+    const total12 = data.meses.reduce((t, m) => t + m.pagos + m.extras, 0);
+    document.getElementById("ingresosAnualTotal").textContent = "Total: " + formatoMonedaDashboard.format(total12);
+
+    if (graficaIngresos) {
+      graficaIngresos.data.labels = etiquetas;
+      graficaIngresos.data.datasets[0].data = pagos;
+      graficaIngresos.data.datasets[1].data = extras;
+      graficaIngresos.update();
+      return;
+    }
+
+    graficaIngresos = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: etiquetas,
+        datasets: [
+          { label: "Pagos", data: pagos, backgroundColor: "#0066cc", borderRadius: 4, maxBarThickness: 42 },
+          { label: "Ingresos extra", data: extras, backgroundColor: "#4dd0e1", borderRadius: 4, maxBarThickness: 42 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: { stacked: true, grid: { display: false } },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { callback: v => formatoMonedaDashboard.format(v) }
+          }
+        },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${formatoMonedaDashboard.format(ctx.parsed.y)}`,
+              footer: items => "Total: " + formatoMonedaDashboard.format(items.reduce((t, i) => t + i.parsed.y, 0))
+            }
+          }
+        },
+        onHover: (evt, elementos) => {
+          evt.native.target.style.cursor = elementos.length ? "pointer" : "default";
+        },
+        onClick: (evt, elementos) => {
+          if (!elementos.length) return;
+          irDesdeDashboard({ dataset: { section: "<?= $seccionIngresos ?>" } });
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Error al cargar la gráfica de ingresos:", err);
+  }
+}
+
+// ===== Panel "Por cobrar": tabla paginada con filtro por estado =====
+function filtrarPorCobrar(estado) {
+  const tabla = document.getElementById("tablaPorCobrar");
+  if (!tabla || !window.jQuery || !$.fn.DataTable.isDataTable(tabla)) return;
+
+  document.querySelectorAll("#filtroPorCobrar .btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.estado === estado);
+  });
+  const regex = estado ? "^" + $.fn.dataTable.util.escapeRegex(estado) + "$" : "";
+  $(tabla).DataTable().column(5).search(regex, true, false).draw();
+}
+
+document.querySelectorAll("#filtroPorCobrar .btn").forEach(btn => {
+  btn.addEventListener("click", () => filtrarPorCobrar(btn.dataset.estado));
+});
+
+// YamsTabla se carga en el footer: inicializar cuando el DOM esté listo
+document.addEventListener("DOMContentLoaded", () => {
+  YamsTabla.init("#tablaPorCobrar", { pageLength: 10, lengthMenu: [10, 25, 50] });
+  // Empieza por lo más urgente: "Por vencer" si hay, si no "Vencidos"
+  filtrarPorCobrar(<?= $totalPorVencer > 0 ? '"Por Vencer"' : '"Vencido"' ?>);
+  cargarGraficaIngresos();
+});
+
 // Ejecutar al cargar
 actualizarDashboard();
+actualizarHoyDashboard();
 
-// Refrescar automáticamente cada 30 segundos
+// Refrescar automáticamente cada 30 segundos (la gráfica cada 5 minutos)
 setInterval(actualizarDashboard, 30000);
+setInterval(actualizarHoyDashboard, 30000);
+setInterval(cargarGraficaIngresos, 300000);
 </script>
 
 <style>
+/* Panel "Hoy" */
+.hoy-total {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #e3e8ef;
+}
+.hoy-label {
+  font-size: 0.85rem;
+  color: #5b6677;
+  font-weight: 600;
+}
+.hoy-monto {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0b3a75;
+  line-height: 1.2;
+}
+.hoy-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
+.hoy-lista li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+}
+.hoy-lista li span i {
+  width: 1.4rem;
+}
+.hoy-lista li.hoy-sep {
+  border-top: 1px dashed #e3e8ef;
+  margin-top: 0.25rem;
+  padding-top: 0.6rem;
+}
+
+/* Gráfica de ingresos */
+.grafica-ingresos {
+  position: relative;
+  height: 280px;
+}
+
+/* Recuadros del dashboard que llevan a otro módulo */
+.dashboard-link {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.dashboard-link:hover,
+.dashboard-link:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+.dashboard-link:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.dashboard-link {
+  height: 100%;
+}
+.dashboard-link .dashboard-stat {
+  padding: 1.5rem 0.5rem;
+}
+/* Evita que cifras y montos se partan en varias líneas o se salgan del recuadro */
+.dashboard-link .animate-number {
+  font-size: clamp(1.15rem, 2vw, 2.5rem);
+  white-space: nowrap;
+}
+
 /* Gradientes llamativos pero elegantes */
 .bg-gradient-success {
   background: linear-gradient(135deg, #4CAF50, #81C784);

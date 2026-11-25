@@ -8,24 +8,15 @@
     const tbody = document.getElementById("tablaIngresosExtras");
     if (!tbody) return;
 
-    if (!lista || !lista.length) {
-        tbody.innerHTML = `
+    // Se arma el HTML completo y se entrega a la tabla paginada (YamsTabla)
+    let html = "";
+    (lista || []).forEach(item => {
+        html += `
         <tr>
-            <td colspan="5" class="text-center text-muted">
-            No hay ingresos extras registrados.
-            </td>
-        </tr>`;
-        return;
-    }
-
-    tbody.innerHTML = "";
-    lista.forEach(item => {
-        tbody.innerHTML += `
-        <tr>
-            <td>${item.evento}</td>
-            <td>${item.fecha}</td>
-            <td>$${parseFloat(item.costo).toFixed(2)}</td>
-            <td>${item.forma_pago || ""}</td> <!-- 🔹 AQUÍ SE MUESTRA -->
+            <td>${escaparHtml(item.evento)}</td>
+            <td>${escaparHtml(item.fecha)}</td>
+            <td data-monto="${parseFloat(item.costo) || 0}">$${parseFloat(item.costo).toFixed(2)}</td>
+            <td>${escaparHtml(item.forma_pago || "")}</td>
             <td class="text-center">
             <button type="button"
                     class="btn btn-sm btn-outline-danger btn-delete-extra"
@@ -36,6 +27,15 @@
         </tr>
         `;
     });
+
+    YamsTabla.reemplazarFilas(tbody.closest("table"), html, { buscador: false });
+    prepararFiltrosExtras();
+    }
+
+    function escaparHtml(v) {
+    return String(v ?? "").replace(/[&<>"']/g, c => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
     }
 
     // Carga la lista desde el servidor
@@ -616,7 +616,8 @@ function calcularDiasRestantes(fechaProximoStr) {
 // ACTUALIZAR ESTADOS Y DÍAS RESTANTES EN TIEMPO REAL
 // ===========================================================
 function actualizarEstadosPagos() {
-  const filas = document.querySelectorAll("#pagosContent table tbody tr");
+  // Todas las filas, no solo la página visible de la tabla paginada
+  const filas = YamsTabla.filas("#tablaPagos");
   if (!filas.length) return;
 
   filas.forEach(row => {
@@ -670,6 +671,10 @@ function actualizarEstadosPagos() {
       .catch(err => console.error("❌ Error al sincronizar estado:", err));
     }
   });
+
+  // Actualiza búsqueda/orden de DataTables con los estados recalculados
+  YamsTabla.refrescar("#tablaPagos");
+  if (typeof aplicarFiltrosPagos === "function") aplicarFiltrosPagos();
 }
 
 // ===========================================================
@@ -934,66 +939,86 @@ document.addEventListener("keyup", function (e) {
 // FILTRO POR ESTADO EN PAGOS
 // =========================
 document.addEventListener("change", function (e) {
-  const select = e.target.closest("#filtroEstadoPago");
-  if (!select) return;
+  const control = e.target.closest("#filtroEstadoPago, #filtroFormaPago, #pagoDesde, #pagoHasta");
+  if (!control) return;
 
   aplicarFiltrosPagos();
 });
 
+document.addEventListener("click", function (e) {
+  if (!e.target.closest("#limpiarFiltrosPagos")) return;
+  ["buscarPagoInput", "filtroEstadoPago", "filtroFormaPago", "pagoDesde", "pagoHasta"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  aplicarFiltrosPagos();
+});
+
 // =========================
-// FUNCIÓN CENTRAL DE FILTROS
+// FUNCIÓN CENTRAL DE FILTROS (nombre + estado)
+// La tabla de pagos está paginada: se filtra con DataTables para
+// buscar en todos los registros y no solo en la página visible.
 // =========================
 function aplicarFiltrosPagos() {
-  const texto = (document.getElementById("buscarPagoInput")?.value || "").toLowerCase();
+  const tabla = document.getElementById("tablaPagos");
+  if (!tabla || !window.jQuery || !$.fn.DataTable.isDataTable(tabla)) return;
+
+  const texto = document.getElementById("buscarPagoInput")?.value || "";
   const estado = document.getElementById("filtroEstadoPago")?.value || "";
+  const forma = document.getElementById("filtroFormaPago")?.value || "";
 
-  const filas = document.querySelectorAll("#pagosContent table tbody tr");
-
-  filas.forEach(row => {
-    const nombre = (row.querySelector("td:nth-child(1)")?.textContent || "").toLowerCase();
-    const estadoCell = row.querySelector("td:nth-child(5)");
-    const estadoTexto = estadoCell ? estadoCell.textContent.trim() : "";
-
-    let visible = true;
-
-    if (texto && !nombre.includes(texto)) {
-      visible = false;
-    }
-
-    if (estado && estadoTexto !== estado) {
-      visible = false;
-    }
-
-    row.style.display = visible ? "" : "none";
-  });
+  const dt = $(tabla).DataTable();
+  dt.column(0).search(texto, false, true);
+  YamsTabla.buscarExacto(dt, 4, estado);
+  YamsTabla.buscarExacto(dt, 6, forma);
+  dt.draw(); // el rango de fechas (columna 2) se evalúa en cada dibujado
 }
 
+// =========================
+// PAGOS: TOTALES POR FORMA DE PAGO (ajuste 06)
+// Suma los pagos que pasan los filtros, en todas las páginas.
+// =========================
+const FORMAS_PAGO = ["Efectivo", "Tarjeta", "Transferencia"];
 
-// 🔁 Unifica nombre + estado
-function aplicarFiltrosPagos() {
-  const texto = (document.getElementById("buscarPagoInput")?.value || "").toLowerCase();
-  const estado = document.getElementById("filtroEstadoPago")?.value || "";
-
-  const filas = document.querySelectorAll("#pagosContent table tbody tr");
-
-  filas.forEach(row => {
-    const nombre = (row.querySelector("td:nth-child(1)")?.textContent || "").toLowerCase();
-    const estadoCell = row.querySelector("td:nth-child(5)");
-    const estadoTexto = estadoCell ? estadoCell.textContent.trim() : "";
-
-    let visible = true;
-
-    if (texto && !nombre.includes(texto)) {
-      visible = false;
-    }
-
-    if (estado && estadoTexto !== estado) {
-      visible = false;
-    }
-
-    row.style.display = visible ? "" : "none";
-  });
+function formatoMonedaMx(n) {
+  return Number(n || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
+
+function pintarTotales(contenedorId, filas, colMonto, colForma, etiqueta) {
+  const cont = document.getElementById(contenedorId);
+  if (!cont) return;
+
+  const sumas = { Efectivo: 0, Tarjeta: 0, Transferencia: 0, Otra: 0 };
+  let total = 0;
+  filas.forEach(tr => {
+    const monto = parseFloat(tr.cells[colMonto]?.dataset.monto || "0") || 0;
+    const forma = (tr.cells[colForma]?.textContent || "").trim();
+    sumas[FORMAS_PAGO.includes(forma) ? forma : "Otra"] += monto;
+    total += monto;
+  });
+
+  const chip = (clase, nombre, valor) =>
+    `<span class="yams-total yams-total-${clase}"><small>${nombre}</small><strong>${formatoMonedaMx(valor)}</strong></span>`;
+
+  cont.innerHTML =
+    chip("efectivo", "Efectivo", sumas.Efectivo) +
+    chip("tarjeta", "Tarjeta", sumas.Tarjeta) +
+    chip("transferencia", "Transferencia", sumas.Transferencia) +
+    (sumas.Otra ? chip("otra", "Sin forma", sumas.Otra) : "") +
+    chip("total", `Total · ${filas.length.toLocaleString("es-MX")} ${etiqueta}`, total);
+}
+
+function actualizarTotalesPagos() {
+  pintarTotales("totalesPagos", YamsTabla.filasFiltradas("#tablaPagos"), 1, 6, "pagos");
+}
+
+window.prepararFiltrosPagos = function () {
+  const tabla = document.getElementById("tablaPagos");
+  if (!tabla || !window.jQuery || !$.fn.DataTable.isDataTable(tabla)) return;
+  YamsTabla.rangoFechas(tabla, 2, "#pagoDesde", "#pagoHasta");
+  $(tabla).on("draw.dt", actualizarTotalesPagos);
+  actualizarTotalesPagos();
+};
 
 
 function marcarColumnaHoyIngresosDiarios() {
@@ -1087,4 +1112,92 @@ document.addEventListener("click", function (e) {
     },
     { once: true }
   );
+});
+
+// =========================
+// INGRESOS EXTRAS: BÚSQUEDA Y FILTROS (ajustes 07 y 08)
+// Columnas: 0 Evento · 1 Fecha · 2 Costo · 3 Forma de pago · 4 Acciones
+// =========================
+function prepararFiltrosExtras() {
+  const tabla = document.getElementById("tablaExtras");
+  if (!tabla || tabla._yamsFiltros || !window.jQuery || !$.fn.DataTable.isDataTable(tabla)) {
+    actualizarTotalesExtras();
+    return;
+  }
+  tabla._yamsFiltros = true;
+  YamsTabla.rangoFechas(tabla, 1, "#extraDesde", "#extraHasta");
+  $(tabla).on("draw.dt", actualizarTotalesExtras);
+  aplicarFiltrosExtras();
+}
+
+function aplicarFiltrosExtras() {
+  const tabla = document.getElementById("tablaExtras");
+  if (!tabla || !window.jQuery || !$.fn.DataTable.isDataTable(tabla)) return;
+
+  const texto = document.getElementById("buscarExtra")?.value || "";
+  const forma = document.getElementById("filtroFormaExtra")?.value || "";
+
+  const dt = $(tabla).DataTable();
+  dt.column(0).search(texto, false, true);
+  YamsTabla.buscarExacto(dt, 3, forma);
+  dt.draw();
+}
+
+function actualizarTotalesExtras() {
+  pintarTotales("totalesExtras", YamsTabla.filasFiltradas("#tablaExtras"), 2, 3, "registros");
+}
+
+// Fechas en hora local (AAAA-MM-DD), no en UTC
+function fechaLocalIso(d) {
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function rangoDePeriodo(periodo) {
+  const hoy = new Date();
+  const y = hoy.getFullYear(), m = hoy.getMonth();
+  switch (periodo) {
+    case "hoy": return [hoy, hoy];
+    case "semana": {
+      const lunes = new Date(hoy);
+      lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+      const domingo = new Date(lunes);
+      domingo.setDate(lunes.getDate() + 6);
+      return [lunes, domingo];
+    }
+    case "mes": return [new Date(y, m, 1), new Date(y, m + 1, 0)];
+    case "mesAnterior": return [new Date(y, m - 1, 1), new Date(y, m, 0)];
+    case "anio": return [new Date(y, 0, 1), new Date(y, 11, 31)];
+    default: return null;
+  }
+}
+
+document.addEventListener("input", function (e) {
+  if (e.target.closest("#buscarExtra")) aplicarFiltrosExtras();
+});
+
+document.addEventListener("change", function (e) {
+  const control = e.target.closest("#filtroFormaExtra, #extraDesde, #extraHasta, #extraPeriodo");
+  if (!control) return;
+
+  const periodo = document.getElementById("extraPeriodo");
+  if (control.id === "extraPeriodo") {
+    const rango = rangoDePeriodo(control.value);
+    if (rango) {
+      document.getElementById("extraDesde").value = fechaLocalIso(rango[0]);
+      document.getElementById("extraHasta").value = fechaLocalIso(rango[1]);
+    }
+  } else if ((control.id === "extraDesde" || control.id === "extraHasta") && periodo) {
+    periodo.value = ""; // fechas a mano = periodo personalizado
+  }
+  aplicarFiltrosExtras();
+});
+
+document.addEventListener("click", function (e) {
+  if (!e.target.closest("#limpiarFiltrosExtras")) return;
+  ["buscarExtra", "filtroFormaExtra", "extraDesde", "extraHasta", "extraPeriodo"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  aplicarFiltrosExtras();
 });

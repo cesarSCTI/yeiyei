@@ -10,6 +10,7 @@ class Pago {
                 p.id,
                 p.cliente_id,
                 p.monto,
+                p.forma_pago,
                 DATE(p.fecha_pago) AS fecha_pago,
                 p.proximo_pago,
                 p.estado,

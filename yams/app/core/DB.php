@@ -11,6 +11,11 @@ class DB {
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]);
+
+            // Alinea NOW()/CURDATE() de MariaDB con la zona horaria de PHP (index.php).
+            // Se usa el desfase numérico (p. ej. -06:00) porque algunos hostings no
+            // tienen cargadas las tablas de zonas horarias de MySQL.
+            self::$pdo->exec("SET time_zone = '" . date('P') . "'");
         }
 
         return self::$pdo;
