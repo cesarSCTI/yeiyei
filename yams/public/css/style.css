@@ -136,3 +136,340 @@ body {
 .content-area {
     padding: 2rem;
 }
+
+/* ===== Tablas con scroll interno y encabezado fijo (YamsTabla) ===== */
+.yams-tabla-scroll {
+    max-height: 60vh;
+    overflow: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+.yams-tabla-scroll table.dataTable {
+    margin: 0 !important;
+}
+/* !important: DataTables pone position:relative a los th ordenables */
+.yams-tabla-scroll table.dataTable thead > tr > th {
+    position: sticky !important;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+}
+.dataTables_wrapper .dataTables_info {
+    padding-top: 0;
+}
+.dataTables_wrapper .dataTables_paginate .pagination {
+    justify-content: flex-end;
+    margin: 0;
+}
+@media (max-width: 767.98px) {
+    .yams-tabla-scroll { max-height: 55vh; }
+    .dataTables_wrapper .dataTables_paginate .pagination { justify-content: center; }
+}
+
+
+/* =====================================================================
+   TEMA OXFORD + CONTROLES UNIFICADOS
+   El fondo se fija aquí para que no dependa del modo claro/oscuro
+   del sistema operativo de cada usuario.
+   ===================================================================== */
+:root {
+    --yams-oxford: #1b2330;
+    --yams-oxford-dark: #10151d;
+    --yams-text-on-dark: #f1f5f9;
+    --yams-muted-on-dark: #aab6c6;
+    --yams-accent-on-dark: #8cc4ff;
+    --yams-control-h: 40px;
+    --yams-radius: 10px;
+}
+
+html {
+    background-color: var(--yams-oxford-dark);
+}
+
+body.wave-background {
+    background-color: var(--yams-oxford);
+    background-image:
+        radial-gradient(circle at 20% 50%, var(--wave-color) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, var(--wave-color) 0%, transparent 50%),
+        linear-gradient(160deg, var(--yams-oxford) 0%, var(--yams-oxford-dark) 100%);
+    background-attachment: fixed;
+}
+
+/* Texto que va directo sobre el fondo oxford (no dentro de tarjetas ni modales) */
+.content-area :is(h1, h2, h3, h4, h5, h6, p, label, small, .form-label,
+                  .dataTables_info, .dataTables_length, .dataTables_filter):not(.card *, .modal *) {
+    color: var(--yams-text-on-dark);
+}
+.content-area :is(h1, h2, h3, h4, h5, h6).text-primary:not(.card *, .modal *) {
+    color: var(--yams-accent-on-dark) !important;
+}
+.content-area .text-muted:not(.card *, .modal *) {
+    color: var(--yams-muted-on-dark) !important;
+}
+
+/* Barra de encabezado de cada sección: título + filtros + acción */
+.yams-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+}
+.yams-toolbar h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+.yams-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+.yams-toolbar-actions > div {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.yams-toolbar label {
+    margin: 0;
+    white-space: nowrap;
+    font-weight: 600;
+}
+.yams-toolbar .form-select {
+    width: auto;
+    min-width: 170px;
+}
+.yams-toolbar .yams-buscador {
+    width: 280px;
+    max-width: 100%;
+}
+
+/* Misma altura y esquinas para buscadores, selects y botones principales */
+.content-area .form-control:not(textarea):not(.form-control-sm):not(.form-control-lg),
+.content-area .form-select:not(.form-select-sm):not(.form-select-lg),
+.modal .form-control:not(textarea),
+.modal .form-select {
+    min-height: var(--yams-control-h);
+    border-radius: var(--yams-radius);
+}
+.btn-primary:not(.btn-sm):not(.btn-lg) {
+    min-height: var(--yams-control-h);
+    padding: 0.45rem 1.25rem;
+    border-radius: var(--yams-radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+.btn-primary.btn-sm {
+    padding: 0.25rem 0.75rem;
+    border-radius: 8px;
+}
+.modal .modal-footer .btn {
+    min-height: var(--yams-control-h);
+    border-radius: var(--yams-radius);
+}
+
+/* Controles de DataTables dentro de tarjetas, alineados al mismo estilo */
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+    min-height: 34px;
+    border-radius: 8px;
+}
+
+@media (max-width: 767.98px) {
+    .yams-toolbar h2 { font-size: 1.4rem; }
+    .yams-toolbar-actions,
+    .yams-toolbar-actions > div { width: 100%; }
+    .yams-toolbar .form-select,
+    .yams-toolbar .yams-buscador { flex: 1 1 auto; width: auto; min-width: 0; }
+}
+
+/* =====================================================================
+   VERSIÓN B: PÁGINA = TÍTULO + PANELES (tarjeta con encabezado propio)
+   ===================================================================== */
+
+/* Título de página: igual en todas las secciones */
+.yams-page-title {
+    margin: 0 0 1.25rem;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--yams-text-on-dark);
+}
+
+/* Panel: tarjeta blanca con encabezado (título + filtros + acción) */
+.card.yams-panel {
+    border-radius: 14px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+.card.yams-panel:hover {
+    transform: none;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+.yams-panel-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 0.9rem 1.25rem;
+    background: #f7f9fc;
+    border-bottom: 1px solid #e3e8ef;
+}
+.yams-panel-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1b2330;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.yams-panel-title i {
+    color: var(--primary-blue);
+}
+.yams-panel-header label {
+    margin: 0;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #4a5568;
+}
+.yams-panel-header .form-select {
+    width: auto;
+    min-width: 170px;
+}
+.yams-panel-header .yams-buscador {
+    width: 280px;
+    max-width: 100%;
+}
+.yams-panel > .card-body {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+/* Subtítulo de grupo sobre el fondo (p. ej. "Ingresos extra" en Ingresos) */
+.yams-section-label {
+    margin: 0.5rem 0 1rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--yams-accent-on-dark);
+}
+
+/* Un solo estilo de encabezado de tabla en todo el sistema */
+.content-area .table > thead > tr > th {
+    background-color: #e8f1fc !important;
+    color: #0b3a75 !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid #c9dcf3;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.content-area .table > thead > tr > th.col-hoy {
+    background-color: #cfe2fa !important;
+}
+
+/* Menú lateral: altura completa y fijo al hacer scroll (escritorio) */
+.col-md-3:has(> .sidebar) {
+    background: var(--dark-blue);
+}
+@media (min-width: 768px) {
+    .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        min-height: 0;
+        overflow-y: auto;
+        background: linear-gradient(180deg, var(--primary-blue), var(--dark-blue));
+    }
+}
+/* En celular el menú no ocupa toda la pantalla */
+@media (max-width: 767.98px) {
+    .sidebar {
+        min-height: 0;
+        padding: 0.5rem;
+    }
+    .sidebar .nav {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    .sidebar .nav-link {
+        padding: 8px 12px;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    .content-area { padding: 1rem; }
+    .yams-panel-header > div,
+    .yams-panel-header .yams-toolbar-actions,
+    .yams-panel-header .yams-toolbar-actions > div { width: 100%; }
+    .yams-panel-header .form-select,
+    .yams-panel-header .yams-buscador { flex: 1 1 auto; width: auto; min-width: 0; }
+}
+
+/* =====================================================================
+   FILTROS DE CONSULTA Y TOTALES POR FORMA DE PAGO (ajustes 06, 07 y 08)
+   ===================================================================== */
+.yams-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+.yams-filtro {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 150px;
+}
+.yams-filtro-texto { flex: 1 1 220px; }
+.yams-filtro label {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4a5568;
+}
+.yams-limpiar {
+    min-height: var(--yams-control-h);
+    border-radius: var(--yams-radius);
+}
+
+.yams-totales {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+}
+.yams-totales:empty { display: none; }
+.yams-total {
+    display: flex;
+    flex-direction: column;
+    padding: 0.4rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid #e3e8ef;
+    background: #f7f9fc;
+    line-height: 1.2;
+    border-left-width: 4px;
+}
+.yams-total small { font-size: 0.75rem; color: #5b6676; }
+.yams-total strong { font-size: 1rem; color: #1b2330; white-space: nowrap; }
+.yams-total-efectivo      { border-left-color: #198754; }
+.yams-total-tarjeta       { border-left-color: #0d6efd; }
+.yams-total-transferencia { border-left-color: #6f42c1; }
+.yams-total-otra          { border-left-color: #adb5bd; }
+.yams-total-total         { border-left-color: #1b2330; background: #eef3fa; margin-left: auto; }
+
+.badge.yams-forma { font-weight: 600; background: #e9ecef; color: #343a40; }
+.badge.yams-forma-efectivo      { background: #d1e7dd; color: #0f5132; }
+.badge.yams-forma-tarjeta       { background: #cfe2ff; color: #084298; }
+.badge.yams-forma-transferencia { background: #e2d9f3; color: #432874; }
+
+@media (max-width: 767.98px) {
+    .yams-filtro { flex: 1 1 45%; min-width: 0; }
+    .yams-filtro-texto { flex-basis: 100%; }
+    .yams-limpiar { flex: 1 1 100%; }
+    .yams-total { flex: 1 1 45%; }
+    .yams-total-total { margin-left: 0; flex-basis: 100%; }
+}

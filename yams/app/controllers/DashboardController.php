@@ -9,6 +9,7 @@ require_once "app/models/User.php";
 require_once "app/models/Clase.php";
 require_once "app/models/ClaseAlumno.php";
 require_once "app/models/TipoClase.php";
+require_once "app/models/IngresoExtra.php";
 require_once "app/core/DB.php";
 
 class DashboardController extends Controller {
@@ -58,21 +59,66 @@ class DashboardController extends Controller {
     }
 
     public function resumen() {
-        header('Content-Type: application/json');
+        if (!isset($_SESSION["user"])) {
+            $this->json(["ok" => false, "msg" => "No autorizado"]);
+        }
+
+        // Estados por cliente (último pago), misma lógica que la tabla de Clientes
+        $estados = Cliente::countByEstadoPago();
+
+        // Ingresos del mes en curso: pagos + ingresos extra
+        $ingresosMes = (float)Pago::sumThisMonth() + IngresoExtra::sumThisMonth();
+
+        $this->json([
+            "ok"          => true,
+            "clientes"    => Cliente::countActivos(),
+            "vencidos"    => $estados["Vencido"],
+            "porVencer"   => $estados["Por Vencer"],
+            "ingresosMes" => round($ingresosMes, 2)
+        ]);
+    }
+
+    // Ingresos de los últimos 12 meses (pagos + ingresos extra), para la gráfica del Dashboard
+    // Ruta: index.php?route=dashboard/ingresosMensuales
+    public function ingresosMensuales() {
+        if (!isset($_SESSION["user"])) {
+            $this->json(["ok" => false, "msg" => "No autorizado"]);
+        }
 
         $db = DB::pdo();
+        $desde = (new DateTime("first day of this month"))->modify("-11 months")->format("Y-m-d");
 
-        $clientes = $db->query("SELECT COUNT(*) AS total FROM clientes WHERE estado = 'Activo'")->fetch()['total'];
-        $vencidos = $db->query("SELECT COUNT(*) AS total FROM pagos WHERE estado = 'Vencido'")->fetch()['total'];
-        $porVencer = $db->query("SELECT COUNT(*) AS total FROM pagos WHERE estado = 'Por Vencer'")->fetch()['total'];
-        $clases = $db->query("SELECT COUNT(*) AS total FROM clases WHERE estado = 'Activa'")->fetch()['total'];
+        $stmt = $db->prepare("
+            SELECT DATE_FORMAT(fecha_pago, '%Y-%m') AS mes, SUM(monto) AS total
+            FROM pagos
+            WHERE fecha_pago >= :desde
+            GROUP BY mes
+        ");
+        $stmt->execute(["desde" => $desde]);
+        $pagos = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
-        echo json_encode([
-            "ok" => true,
-            "clientes" => (int)$clientes,
-            "vencidos" => (int)$vencidos,
-            "porVencer" => (int)$porVencer,
-            "clases" => (int)$clases
-        ]);
-    }    
+        $stmt = $db->prepare("
+            SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, SUM(costo) AS total
+            FROM ingresos_extras
+            WHERE fecha >= :desde
+            GROUP BY mes
+        ");
+        $stmt->execute(["desde" => $desde]);
+        $extras = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        // Siempre 12 meses, aunque alguno no tenga movimientos
+        $meses = [];
+        $mes = new DateTime($desde);
+        for ($i = 0; $i < 12; $i++) {
+            $clave = $mes->format("Y-m");
+            $meses[] = [
+                "mes"    => $clave,
+                "pagos"  => round((float)($pagos[$clave] ?? 0), 2),
+                "extras" => round((float)($extras[$clave] ?? 0), 2),
+            ];
+            $mes->modify("+1 month");
+        }
+
+        $this->json(["ok" => true, "meses" => $meses]);
+    }
 }

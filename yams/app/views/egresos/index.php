@@ -1,16 +1,17 @@
 <div class="container-fluid p-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-arrow-down me-2"></i>Control de Egresos</h2>
-        <button class="btn btn-primary" onclick="showAddEgresoModal()">
-            <i class="fas fa-plus me-2"></i>Registrar Egreso
-        </button>
-    </div>
+    <h2 class="yams-page-title"><i class="fas fa-arrow-down me-2"></i>Control de Egresos</h2>
 
-    <div class="card table-container">
+    <div class="card yams-panel">
+        <div class="yams-panel-header">
+            <h5 class="yams-panel-title"><i class="fas fa-file-invoice-dollar"></i>Egresos</h5>
+            <button class="btn btn-primary" onclick="showAddEgresoModal()">
+                <i class="fas fa-plus me-2"></i>Registrar Egreso
+            </button>
+        </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-danger">
+                <table class="table table-hover" id="tablaEgresos">
+                    <thead>
                         <tr>
                             <th>Concepto</th>
                             <th>Monto</th>
@@ -92,3 +93,11 @@
     </div>
   </div>
 </div>
+
+
+<script>
+// Tabla de egresos: paginada, con scroll interno y encabezado fijo
+$(function () {
+  YamsTabla.init('#tablaEgresos', { buscador: false });
+});
+</script>

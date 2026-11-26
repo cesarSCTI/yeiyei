@@ -1,14 +1,18 @@
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h2 class="m-0"><i class="fas fa-users me-2"></i>Gestión de Clientes</h2>
+<h2 class="yams-page-title"><i class="fas fa-users me-2"></i>Gestión de Clientes</h2>
 
-<div class="d-flex align-items-center gap-2 flex-wrap">
+<!--  Panel Clientes  -->
+<div class="card yams-panel">
+<div class="yams-panel-header">
+  <h5 class="yams-panel-title"><i class="fas fa-address-book"></i>Clientes</h5>
+
+<div class="yams-toolbar-actions">
 
   <div class="d-flex align-items-center gap-2">
     <label for="filtroTipoClaseClientes" class="form-label mb-0 fw-semibold">
       Tipo de clase:
     </label>
 
-    <select id="filtroTipoClaseClientes" class="form-select form-select-sm" style="min-width: 220px;">
+    <select id="filtroTipoClaseClientes" class="form-select">
       <option value="">Todos</option>
       <?php foreach (($tipos ?? []) as $tipoFiltro): ?>
         <option value="<?= htmlspecialchars($tipoFiltro["nombre"] ?? "") ?>">
@@ -18,19 +22,30 @@
     </select>
   </div>
 
-  <button type="button" class="btn btn-sm btn-primary" onclick="showAddClientModal()">
+  <div class="d-flex align-items-center gap-2">
+    <label for="filtroEstadoPagoClientes" class="form-label mb-0 fw-semibold">
+      Estado de pago:
+    </label>
+
+    <select id="filtroEstadoPagoClientes" class="form-select">
+      <option value="">Todos</option>
+      <option value="Pagado">Pagado</option>
+      <option value="Por Vencer">Por Vencer</option>
+      <option value="Vencido">Vencido</option>
+      <option value="Sin registro">Sin registro</option>
+    </select>
+  </div>
+
+  <button type="button" class="btn btn-primary" onclick="showAddClientModal()">
     <i class="fas fa-plus me-1"></i> Nuevo Cliente
   </button>
 </div>
 
 </div>
-
-<!--  Tabla Clientes  -->
-<div class="card table-container">
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover" id="tablaClientes">
-                <thead class="table-primary">
+                <thead>
                     <tr>
                         <th>ID</th>
                         <th>Nombre</th>
@@ -53,9 +68,9 @@
                                 <td><?= htmlspecialchars($c["fecha_registro"]) ?></td>
 
                                 <!-- Estado del pago -->
-                                <td>
+                                <?php $estadoPago = $c["estado_pago"] ?? "Sin registro"; ?>
+                                <td data-search="<?= htmlspecialchars($estadoPago) ?>">
                                     <?php
-                                        $estadoPago = $c["estado_pago"] ?? "Sin registro";
 
                                         if ($estadoPago === "Pagado") {
                                             $badgePago = "success";
@@ -102,6 +117,16 @@
                                             title="Ver días y horarios">
                                         <i class="far fa-clock"></i>
                                     </button>
+                                    <?php if (!empty($c["telefono"])): ?>
+                                    <!-- Aviso por WhatsApp (reutiliza el recordatorio de Pagos) -->
+                                    <button type="button" class="btn btn-sm btn-outline-success btn-reminder"
+                                            data-telefono="<?= htmlspecialchars($c["telefono"]) ?>"
+                                            data-estado="<?= htmlspecialchars($estadoPago) ?>"
+                                            data-cliente="<?= htmlspecialchars($c["nombre"]) ?>"
+                                            title="Enviar aviso por WhatsApp">
+                                        <i class="fab fa-whatsapp"></i>
+                                    </button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -160,16 +185,18 @@
 </div>
 
 
-<hr class="mt-5 mb-4">
-<h4><i class="fas fa-list"></i> Tipos de Clase</h4>
-<button class="btn btn-primary mb-3" onclick="showAddTipoClaseModal()">
-  <i class="fas fa-plus"></i> Nuevo Tipo de Clase
-</button>
-
-<div class="card">
+<!--  Panel Tipos de Clase  -->
+<div class="card yams-panel">
+  <div class="yams-panel-header">
+    <h5 class="yams-panel-title"><i class="fas fa-list"></i>Tipos de Clase</h5>
+    <button class="btn btn-primary" onclick="showAddTipoClaseModal()">
+      <i class="fas fa-plus me-1"></i> Nuevo Tipo de Clase
+    </button>
+  </div>
   <div class="card-body">
+    <div class="table-responsive">
     <table class="table table-hover">
-      <thead class="table-dark">
+      <thead>
         <tr>
           <th>ID</th>
           <th>Nombre</th>
@@ -191,6 +218,7 @@
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -239,13 +267,8 @@
 
 <script>
 $(document).ready(function() {
-  const tabla = $('#tablaClientes').DataTable({
-    language: { url: '//cdn.datatables.net/plug-ins/1.13.5/i18n/es-ES.json' },
-    pageLength: 10,
-    ordering: true,
-    responsive: true,
-    autoWidth: false
-  });
+  // Paginación + scroll interno con encabezado fijo (ver YamsTabla en app.core.js)
+  const tabla = YamsTabla.init('#tablaClientes');
 
   // Filtro por Tipo de Clase
   $('#filtroTipoClaseClientes').on('change', function() {
@@ -253,6 +276,13 @@ $(document).ready(function() {
 
     // Columna 3 = Tipo de Clase
     tabla.column(3).search(tipoClase ? '^' + tipoClase + '$' : '', true, false).draw();
+  });
+
+  // Filtro por Estado de Pago (también lo usa el Dashboard al redirigir)
+  // Columna 5 = Estado Pago; se filtra sobre el atributo data-search de la celda
+  $('#filtroEstadoPagoClientes').on('change', function() {
+    const estado = $.fn.dataTable.util.escapeRegex($(this).val());
+    tabla.column(5).search(estado ? '^' + estado + '$' : '', true, false).draw();
   });
 
   // Vincula el buscador externo
