@@ -9,6 +9,39 @@
             </button>
         </div>
         <div class="card-body">
+            <!-- Búsqueda y filtros de consulta (ajustes 11 y 12) -->
+            <div class="yams-filtros">
+                <div class="yams-filtro yams-filtro-texto">
+                    <label for="buscarEgreso">Buscar</label>
+                    <input type="text" id="buscarEgreso" class="form-control" placeholder="Concepto del egreso...">
+                </div>
+                <div class="yams-filtro">
+                    <label for="egresoDesde">Desde</label>
+                    <input type="date" id="egresoDesde" class="form-control">
+                </div>
+                <div class="yams-filtro">
+                    <label for="egresoHasta">Hasta</label>
+                    <input type="date" id="egresoHasta" class="form-control">
+                </div>
+                <div class="yams-filtro">
+                    <label for="egresoPeriodo">Periodo</label>
+                    <select id="egresoPeriodo" class="form-select">
+                        <option value="">Personalizado</option>
+                        <option value="hoy">Hoy</option>
+                        <option value="semana">Esta semana</option>
+                        <option value="mes">Este mes</option>
+                        <option value="mesAnterior">Mes anterior</option>
+                        <option value="anio">Este año</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-outline-secondary yams-limpiar" id="limpiarFiltrosEgresos">
+                    <i class="fas fa-eraser me-1"></i>Limpiar
+                </button>
+            </div>
+
+            <!-- Total según los filtros aplicados -->
+            <div class="yams-totales" id="totalesEgresos" aria-live="polite"></div>
+
             <div class="table-responsive">
                 <table class="table table-hover" id="tablaEgresos">
                     <thead>
@@ -24,9 +57,10 @@
                             <?php foreach($egresos as $e): ?>
                             <tr>
                                 <td><?= htmlspecialchars($e['concepto']) ?></td>
-                                <td>$<?= number_format($e['monto'],2) ?></td>
+                                <td data-monto="<?= (float)$e['monto'] ?>">$<?= number_format($e['monto'],2) ?></td>
                                 <td><?= $e['fecha'] ?></td>
                                 <td>
+                                  <?php if (yams_puede_modificar()): // ajustes 14 y 15 ?>
                                   <button class="btn btn-sm btn-success btn-edit-egreso" 
                                           data-id="<?= $e['id'] ?>">
                                       <i class="fas fa-edit"></i>
@@ -35,6 +69,7 @@
                                           data-id="<?= $e['id'] ?>">
                                       <i class="fas fa-trash"></i>
                                   </button>
+                                  <?php endif; ?>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -99,5 +134,6 @@
 // Tabla de egresos: paginada, con scroll interno y encabezado fijo
 $(function () {
   YamsTabla.init('#tablaEgresos', { buscador: false });
+  if (typeof prepararFiltrosEgresos === 'function') prepararFiltrosEgresos(); // ajustes 11 y 12
 });
 </script>

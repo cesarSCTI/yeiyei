@@ -107,6 +107,7 @@ class IngresoextraController extends Controller {
 
     // Eliminar ingreso extra
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if (!isset($_SESSION["user"])) {
             echo json_encode(["ok" => false, "msg" => "No autorizado"]);
             return;

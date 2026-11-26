@@ -2,3 +2,24 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php?route=$1 [QSA,L]
+
+# ===== Rendimiento (ajuste 21) =====
+# Comprime HTML, JSON, CSS y JS: la pantalla principal baja de ~30 MB a ~1 MB.
+# IfModule: si el hosting no tiene el módulo, la regla se ignora sin error.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css application/json application/javascript text/javascript image/svg+xml
+</IfModule>
+
+# Caché del navegador para estilos, scripts e imágenes. header.php agrega
+# ?v=<fecha del archivo> a CSS y JS, así que un cambio publicado se descarga
+# de nuevo aunque haya caché.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 30 days"
+    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType text/javascript "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType image/x-icon "access plus 30 days"
+</IfModule>

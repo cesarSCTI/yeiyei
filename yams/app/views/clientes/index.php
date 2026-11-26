@@ -1,3 +1,4 @@
+<?php $puedeModificar = yams_puede_modificar(); // Operador: solo consulta y registra (ajustes 14 y 15) ?>
 <h2 class="yams-page-title"><i class="fas fa-users me-2"></i>Gestión de Clientes</h2>
 
 <!--  Panel Clientes  -->
@@ -59,76 +60,25 @@
                 </thead>
                 <tbody>
                     <?php if (!empty($clientes) && is_array($clientes)): ?>
-                        <?php foreach ($clientes as $c): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($c["id"]) ?></td>
-                                <td><?= htmlspecialchars($c["nombre"]) ?></td>
-                                <td><?= htmlspecialchars($c["telefono"]) ?></td>
-                                <td><?= htmlspecialchars($c["tipo_clase"]) ?></td>
-                                <td><?= htmlspecialchars($c["fecha_registro"]) ?></td>
-
-                                <!-- Estado del pago -->
-                                <?php $estadoPago = $c["estado_pago"] ?? "Sin registro"; ?>
-                                <td data-search="<?= htmlspecialchars($estadoPago) ?>">
-                                    <?php
-
-                                        if ($estadoPago === "Pagado") {
-                                            $badgePago = "success";
-                                        } elseif ($estadoPago === "Por Vencer") {
-                                            $badgePago = "warning";
-                                        } elseif ($estadoPago === "Vencido") {
-                                            $badgePago = "danger";
-                                        } else {
-                                            $badgePago = "secondary";
-                                        }
-                                    ?>
-                                    <span class="badge bg-<?= $badgePago ?>">
-                                        <?= htmlspecialchars($estadoPago) ?>
-                                    </span>
-                                </td>
-
-                                <!-- Días restantes -->
-                                <td>
-                                    <?php if (($c["estado_pago"] ?? "") === "Sin registro" || $c["dias_restantes"] === null): ?>
-                                        <span class="text-muted">--</span>
-                                    <?php else: ?>
-                                        <?php
-                                            $dias = (int)$c["dias_restantes"];
-
-                                            if ($dias < 0) {
-                                                echo '<span class="text-danger fw-bold">' . $dias . '</span>';
-                                            } elseif ($dias <= 5) {
-                                                echo '<span class="text-warning fw-bold">' . $dias . '</span>';
-                                            } else {
-                                                echo '<span class="text-success fw-bold">' . $dias . '</span>';
-                                            }
-                                        ?>
-                                    <?php endif; ?>
-                                </td>
-
-                                <td>
-                                    <button type="button" class="btn btn-sm btn-outline-primary btn-edit" data-id="<?= $c["id"] ?>">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete" data-id="<?= $c["id"] ?>">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-info btn-horarios" data-id="<?= $c['id']; ?>"
-                                            title="Ver días y horarios">
-                                        <i class="far fa-clock"></i>
-                                    </button>
-                                    <?php if (!empty($c["telefono"])): ?>
-                                    <!-- Aviso por WhatsApp (reutiliza el recordatorio de Pagos) -->
-                                    <button type="button" class="btn btn-sm btn-outline-success btn-reminder"
-                                            data-telefono="<?= htmlspecialchars($c["telefono"]) ?>"
-                                            data-estado="<?= htmlspecialchars($estadoPago) ?>"
-                                            data-cliente="<?= htmlspecialchars($c["nombre"]) ?>"
-                                            title="Enviar aviso por WhatsApp">
-                                        <i class="fab fa-whatsapp"></i>
-                                    </button>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
+                        <?php
+                        // Filas compactas: con miles de clientes cada byte de sangría se repite
+                        // miles de veces en la página (ajuste 21).
+                        $badgesPago = ['Pagado' => 'success', 'Por Vencer' => 'warning', 'Vencido' => 'danger'];
+                        foreach ($clientes as $c):
+                            $id         = (int)$c["id"];
+                            $nombre     = htmlspecialchars($c["nombre"] ?? '');
+                            $telefono   = htmlspecialchars($c["telefono"] ?? '');
+                            $estadoPago = $c["estado_pago"] ?? "Sin registro";
+                            $estadoHtml = htmlspecialchars($estadoPago);
+                            if ($estadoPago === "Sin registro" || $c["dias_restantes"] === null) {
+                                $diasHtml = '<span class="text-muted">--</span>';
+                            } else {
+                                $dias = (int)$c["dias_restantes"];
+                                $colorDias = $dias < 0 ? 'text-danger' : ($dias <= 5 ? 'text-warning' : 'text-success');
+                                $diasHtml = '<span class="' . $colorDias . ' fw-bold">' . $dias . '</span>';
+                            }
+                        ?>
+<tr><td><?= $id ?></td><td><?= $nombre ?></td><td><?= $telefono ?></td><td><?= htmlspecialchars($c["tipo_clase"] ?? '') ?></td><td><?= htmlspecialchars($c["fecha_registro"] ?? '') ?></td><td data-search="<?= $estadoHtml ?>"><span class="badge bg-<?= $badgesPago[$estadoPago] ?? 'secondary' ?>"><?= $estadoHtml ?></span></td><td><?= $diasHtml ?></td><td><?php if ($puedeModificar): ?><button type="button" class="btn btn-sm btn-outline-primary btn-edit" data-id="<?= $id ?>"><i class="fas fa-edit"></i></button> <button type="button" class="btn btn-sm btn-outline-danger btn-delete" data-id="<?= $id ?>"><i class="fas fa-trash"></i></button> <?php endif; ?><button type="button" class="btn btn-sm btn-outline-info btn-horarios" data-id="<?= $id ?>" title="Ver días y horarios"><i class="far fa-clock"></i></button><?php if ($telefono !== ''): ?> <button type="button" class="btn btn-sm btn-outline-success btn-reminder" data-telefono="<?= $telefono ?>" data-estado="<?= $estadoHtml ?>" data-cliente="<?= $nombre ?>" title="Enviar aviso por WhatsApp"><i class="fab fa-whatsapp"></i></button><?php endif; ?></td></tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
@@ -211,8 +161,10 @@
           <td><?= $t["nombre"] ?></td>
           <td><?= $t["descripcion"] ?></td>
           <td>
+            <?php if ($puedeModificar): ?>
             <button class="btn btn-sm btn-success btn-edit-tipoclase" data-id="<?= $t['id'] ?>"><i class="fas fa-edit"></i></button>
             <button class="btn btn-sm btn-danger btn-delete-tipoclase" data-id="<?= $t['id'] ?>"><i class="fas fa-trash"></i></button>
+            <?php endif; ?>
           </td>
         </tr>
         <?php endforeach; ?>

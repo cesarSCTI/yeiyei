@@ -8,29 +8,31 @@
     const tbody = document.getElementById("tablaIngresosExtras");
     if (!tbody) return;
 
+    // Se guarda la lista para llenar el modal al editar (ajuste 19)
+    extrasPorId = {};
+    (lista || []).forEach(item => { extrasPorId[item.id] = item; });
+
+    // Editar y eliminar solo para el Administrador (ajustes 14, 15 y 19)
+    const puedeModificar = window.YAMS_PUEDE_MODIFICAR === true;
+
     // Se arma el HTML completo y se entrega a la tabla paginada (YamsTabla)
     let html = "";
     (lista || []).forEach(item => {
-        html += `
-        <tr>
-            <td>${escaparHtml(item.evento)}</td>
-            <td>${escaparHtml(item.fecha)}</td>
-            <td data-monto="${parseFloat(item.costo) || 0}">$${parseFloat(item.costo).toFixed(2)}</td>
-            <td>${escaparHtml(item.forma_pago || "")}</td>
-            <td class="text-center">
-            <button type="button"
-                    class="btn btn-sm btn-outline-danger btn-delete-extra"
-                    data-id="${item.id}">
-                <i class="fas fa-trash"></i>
-            </button>
-            </td>
-        </tr>
-        `;
+        const id = parseInt(item.id, 10);
+        const acciones = puedeModificar
+            ? `<button type="button" class="btn btn-sm btn-outline-primary btn-edit-extra" data-id="${id}" title="Editar"><i class="fas fa-edit"></i></button> ` +
+              `<button type="button" class="btn btn-sm btn-outline-danger btn-delete-extra" data-id="${id}" title="Eliminar"><i class="fas fa-trash"></i></button>`
+            : `<span class="text-muted">—</span>`;
+        html += `<tr><td>${escaparHtml(item.evento)}</td><td>${escaparHtml(item.fecha)}</td>` +
+            `<td data-monto="${parseFloat(item.costo) || 0}">$${parseFloat(item.costo).toFixed(2)}</td>` +
+            `<td>${escaparHtml(item.forma_pago || "")}</td><td class="text-center text-nowrap">${acciones}</td></tr>`;
     });
 
     YamsTabla.reemplazarFilas(tbody.closest("table"), html, { buscador: false });
     prepararFiltrosExtras();
     }
+
+    let extrasPorId = {};
 
     function escaparHtml(v) {
     return String(v ?? "").replace(/[&<>"']/g, c => (
@@ -61,8 +63,9 @@
 
     e.preventDefault();
     const data = new FormData(form);
+    const esEdicion = !!data.get("id"); // ajuste 19
 
-    fetch("index.php?route=finanzas/extrasStore", {
+    fetch(esEdicion ? "index.php?route=finanzas/extrasUpdate" : "index.php?route=finanzas/extrasStore", {
         method: "POST",
         body: data
     })
@@ -81,10 +84,11 @@
         // Limpiar formulario
         form.reset();
 
-        // Recargar tabla
+        // Recargar tabla y tarjetas
         cargarIngresosExtras();
+        if (typeof actualizarResumenFinanzas === "function") actualizarResumenFinanzas();
 
-        alert("Ingreso extra guardado ✅");
+        alert(esEdicion ? "Ingreso extra actualizado ✅" : "Ingreso extra guardado ✅");
         })
         .catch(err => {
         console.error("Error de red al guardar ingreso extra:", err);
@@ -115,8 +119,9 @@
             return;
         }
 
-        // Recargar tabla
+        // Recargar tabla y tarjetas
         cargarIngresosExtras();
+        if (typeof actualizarResumenFinanzas === "function") actualizarResumenFinanzas();
 
         alert("Ingreso extra eliminado ✅");
         })
@@ -124,6 +129,41 @@
         console.error("Error de red al eliminar ingreso extra:", err);
         alert("Error de conexión al eliminar ingreso extra ❌");
         });
+    });
+
+    // Editar ingreso extra desde Administración (ajuste 19): reutiliza el modal de alta
+    document.addEventListener("click", function (e) {
+    const btn = e.target.closest(".btn-edit-extra");
+    if (!btn) return;
+
+    const item = extrasPorId[btn.dataset.id];
+    const modalEl = document.getElementById("modalIngresoExtra");
+    const form = document.getElementById("formIngresoExtra");
+    if (!item || !modalEl || !form || !form.elements.id) return;
+
+    form.reset();
+    form.elements.id.value = item.id;
+    form.elements.evento.value = item.evento || "";
+    form.elements.fecha.value = (item.fecha || "").slice(0, 10);
+    form.elements.costo.value = item.costo;
+    form.elements.forma_pago.value = item.forma_pago || "Efectivo";
+
+    const titulo = document.getElementById("tituloModalExtra");
+    if (titulo) titulo.innerHTML = '<i class="fas fa-edit"></i> Editar Ingreso Extra';
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    });
+
+    // Al cerrar el modal vuelve a quedar como "Nuevo" (sin id)
+    document.addEventListener("hidden.bs.modal", function (e) {
+    if (e.target.id !== "modalIngresoExtra") return;
+    const form = document.getElementById("formIngresoExtra");
+    if (form) {
+        form.reset();
+        if (form.elements.id) form.elements.id.value = "";
+    }
+    const titulo = document.getElementById("tituloModalExtra");
+    if (titulo) titulo.innerHTML = '<i class="fas fa-plus"></i> Nuevo Ingreso Extra';
     });
 
     // Cargar ingresos extras al entrar al dashboard (una sola vez)
@@ -568,130 +608,31 @@ document.addEventListener("keyup", function (e) {
   const input = e.target.closest("#buscarClienteInput");
   if (!input) return;
 
+  // La tabla del modal está paginada (DataTables, 5 por página): filtrar las
+  // filas del DOM solo alcanzaba a las 5 visibles. Se usa la búsqueda de la
+  // tabla, que recorre los miles de clientes sin tocar el DOM (ajuste 21).
+  const tabla = document.getElementById("tablaClientesPago");
+  if (tabla && window.jQuery && $.fn.DataTable.isDataTable(tabla)) {
+    $(tabla).DataTable().search(input.value).draw();
+    return;
+  }
+
   const filter = input.value.toLowerCase();
   const filas = document.querySelectorAll("#clientesBody tr");
 
   filas.forEach(row => {
-    const texto = row.innerText.toLowerCase();
+    const texto = row.textContent.toLowerCase(); // textContent: no recalcula diseño (ajuste 21)
     row.style.display = texto.includes(filter) ? "" : "none";
   });
 });
 
 // ===========================================================
-// ACTUALIZAR ESTADOS Y DÍAS RESTANTES (automático y sincronizado)
+// ESTADOS Y DÍAS RESTANTES DE PAGOS
+// Antes se recalculaban aquí, fila por fila, cada vez que se abría Pagos y se
+// mandaba una petición por cada pago que cambiaba. Ahora el servidor los pone
+// al día en una sola consulta (Pago::sincronizarEstados) y ya llegan en la
+// tabla (ajuste 21).
 // ===========================================================
-
-// ✅ Corrige el error de -1 día (interpreta fechas en hora local)
-// Convierte cadena "YYYY-MM-DD" a fecha local (medianoche)
-function toLocalDateOnly(str) {
-  if (!str) return null;
-  const [datePart] = String(str).trim().split(" ");
-  const [y, m, d] = datePart.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-}
-
-// ===========================================================
-// CALCULAR DÍAS RESTANTES (sin horas, sin UTC)
-// ===========================================================
-function calcularDiasRestantes(fechaProximoStr) {
-  if (!fechaProximoStr) return 0;
-
-  // 🔹 Tomamos solo la parte de la fecha (ignoramos la hora)
-  const [anio, mes, dia] = fechaProximoStr.split(" ")[0].split("-").map(Number);
-
-  // 🔹 Creamos una fecha local sin zona horaria (medianoche)
-  const proximo = new Date(anio, mes - 1, dia);
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  proximo.setHours(0, 0, 0, 0);
-
-  // 🔹 Calculamos la diferencia en días enteros
-  const diffMs = proximo - hoy;
-  const diffDias = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-  return diffDias;
-}
-
-// ===========================================================
-// ACTUALIZAR ESTADOS Y DÍAS RESTANTES EN TIEMPO REAL
-// ===========================================================
-function actualizarEstadosPagos() {
-  // Todas las filas, no solo la página visible de la tabla paginada
-  const filas = YamsTabla.filas("#tablaPagos");
-  if (!filas.length) return;
-
-  filas.forEach(row => {
-    const idPago = row.querySelector(".btn-edit-pago")?.dataset.id;
-    const fechaProximo = row.querySelector("td:nth-child(4)")?.textContent.trim();
-    const estadoCell = row.querySelector("td:nth-child(5)");
-    const diasCell = row.querySelector("td:nth-child(6)");
-    if (!idPago || !fechaProximo || !estadoCell || !diasCell) return;
-
-    const dias = calcularDiasRestantes(fechaProximo);
-    let nuevoEstado = "Pagado";
-
-    if (dias < 0) nuevoEstado = "Vencido";
-    else if (dias <= 5) nuevoEstado = "Por Vencer";
-
-    const estadoActual = estadoCell.textContent.trim();
-
-    // 🔄 Actualizar siempre los valores visibles
-    estadoCell.innerHTML = `
-      <span class="badge ${
-        nuevoEstado === "Pagado"
-          ? "bg-success"
-          : nuevoEstado === "Vencido"
-          ? "bg-danger"
-          : "bg-warning"
-      }">${nuevoEstado}</span>
-    `;
-
-    // Mostrar "Hoy vence" si quedan 0 días
-    diasCell.textContent = dias === 0 ? "Hoy vence" : `${dias} días`;
-    diasCell.className = dias < 0 ? "text-danger fw-bold" : "text-success fw-bold";
-
-    // ⚡ Solo sincronizar si cambió el estado en la base de datos
-    if (nuevoEstado !== estadoActual) {
-      fetch("index.php?route=pago/update", {
-        method: "POST",
-        body: new URLSearchParams({
-          id: idPago,
-          estado: nuevoEstado,
-          accion: "autoUpdateEstado"
-        })
-      })
-      .then(r => r.json())
-      .then(res => {
-        if (res.ok) {
-          console.log(`✅ Estado sincronizado (${idPago} → ${nuevoEstado})`);
-        } else {
-          console.warn(`⚠️ No se pudo actualizar estado del pago ID ${idPago}`);
-        }
-      })
-      .catch(err => console.error("❌ Error al sincronizar estado:", err));
-    }
-  });
-
-  // Actualiza búsqueda/orden de DataTables con los estados recalculados
-  YamsTabla.refrescar("#tablaPagos");
-  if (typeof aplicarFiltrosPagos === "function") aplicarFiltrosPagos();
-}
-
-// ===========================================================
-// AUTOEJECUCIÓN AL ABRIR SECCIÓN PAGOS
-// ===========================================================
-document.addEventListener("click", function (e) {
-  const link = e.target.closest(".nav-link");
-  if (link && link.getAttribute("onclick")?.includes("pagos")) {
-    setTimeout(actualizarEstadosPagos, 800);
-  }
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-  if (document.querySelector("#pagosContent table")) {
-    setTimeout(actualizarEstadosPagos, 800);
-  }
-});
 
 // ===========================================================
 // SELECCIONAR CLIENTE PARA CLASES
@@ -739,7 +680,7 @@ document.addEventListener("keyup", function (e) {
   const filas = document.querySelectorAll("#clientesClaseBody tr");
 
   filas.forEach(row => {
-    const texto = row.innerText.toLowerCase();
+    const texto = row.textContent.toLowerCase(); // textContent: no recalcula diseño (ajuste 21)
     row.style.display = texto.includes(filter) ? "" : "none";
   });
 });
@@ -992,13 +933,21 @@ function pintarTotales(contenedorId, filas, colMonto, colForma, etiqueta) {
   let total = 0;
   filas.forEach(tr => {
     const monto = parseFloat(tr.cells[colMonto]?.dataset.monto || "0") || 0;
-    const forma = (tr.cells[colForma]?.textContent || "").trim();
-    sumas[FORMAS_PAGO.includes(forma) ? forma : "Otra"] += monto;
+    if (colForma !== null && colForma !== undefined) {
+      const forma = (tr.cells[colForma]?.textContent || "").trim();
+      sumas[FORMAS_PAGO.includes(forma) ? forma : "Otra"] += monto;
+    }
     total += monto;
   });
 
   const chip = (clase, nombre, valor) =>
     `<span class="yams-total yams-total-${clase}"><small>${nombre}</small><strong>${formatoMonedaMx(valor)}</strong></span>`;
+
+  // Tablas sin forma de pago (egresos): solo el total del resultado
+  if (colForma === null || colForma === undefined) {
+    cont.innerHTML = chip("total", `Total · ${filas.length.toLocaleString("es-MX")} ${etiqueta}`, total);
+    return;
+  }
 
   cont.innerHTML =
     chip("efectivo", "Efectivo", sumas.Efectivo) +
@@ -1115,36 +1064,76 @@ document.addEventListener("click", function (e) {
 });
 
 // =========================
-// INGRESOS EXTRAS: BÚSQUEDA Y FILTROS (ajustes 07 y 08)
-// Columnas: 0 Evento · 1 Fecha · 2 Costo · 3 Forma de pago · 4 Acciones
+// BÚSQUEDA Y FILTROS DE CONSULTA (ingresos extra 07-08 y egresos 11-12)
+// Un solo componente para las dos tablas: buscador de texto, forma de pago
+// (opcional), rango de fechas, periodos rápidos, botón Limpiar y totales del
+// resultado. Cada tabla pasa sus ids y el número de sus columnas.
 // =========================
-function prepararFiltrosExtras() {
-  const tabla = document.getElementById("tablaExtras");
-  if (!tabla || tabla._yamsFiltros || !window.jQuery || !$.fn.DataTable.isDataTable(tabla)) {
-    actualizarTotalesExtras();
-    return;
+function crearFiltrosTabla(cfg) {
+  const ids = [cfg.buscar, cfg.forma, cfg.desde, cfg.hasta, cfg.periodo].filter(Boolean);
+  const valor = id => (id && document.getElementById(id)?.value) || "";
+  const tablaLista = () => {
+    const t = document.getElementById(cfg.tabla);
+    return t && window.jQuery && $.fn.DataTable.isDataTable(t) ? t : null;
+  };
+
+  function actualizarTotales() {
+    pintarTotales(cfg.totales, YamsTabla.filasFiltradas("#" + cfg.tabla), cfg.colMonto, cfg.colForma, cfg.etiqueta);
   }
-  tabla._yamsFiltros = true;
-  YamsTabla.rangoFechas(tabla, 1, "#extraDesde", "#extraHasta");
-  $(tabla).on("draw.dt", actualizarTotalesExtras);
-  aplicarFiltrosExtras();
-}
 
-function aplicarFiltrosExtras() {
-  const tabla = document.getElementById("tablaExtras");
-  if (!tabla || !window.jQuery || !$.fn.DataTable.isDataTable(tabla)) return;
+  function aplicar() {
+    const t = tablaLista();
+    if (!t) return;
+    const dt = $(t).DataTable();
+    dt.column(cfg.colTexto).search(valor(cfg.buscar), false, true);
+    if (cfg.forma) YamsTabla.buscarExacto(dt, cfg.colForma, valor(cfg.forma));
+    dt.draw();
+  }
 
-  const texto = document.getElementById("buscarExtra")?.value || "";
-  const forma = document.getElementById("filtroFormaExtra")?.value || "";
+  // Se llama cada vez que la tabla recibe filas; engancha los filtros una sola vez
+  function preparar() {
+    const t = tablaLista();
+    if (!t || t._yamsFiltros) {
+      actualizarTotales();
+      return;
+    }
+    t._yamsFiltros = true;
+    YamsTabla.rangoFechas(t, cfg.colFecha, "#" + cfg.desde, "#" + cfg.hasta);
+    $(t).on("draw.dt", actualizarTotales);
+    aplicar();
+  }
 
-  const dt = $(tabla).DataTable();
-  dt.column(0).search(texto, false, true);
-  YamsTabla.buscarExacto(dt, 3, forma);
-  dt.draw();
-}
+  document.addEventListener("input", function (e) {
+    if (cfg.buscar && e.target.id === cfg.buscar) aplicar();
+  });
 
-function actualizarTotalesExtras() {
-  pintarTotales("totalesExtras", YamsTabla.filasFiltradas("#tablaExtras"), 2, 3, "registros");
+  document.addEventListener("change", function (e) {
+    const id = e.target.id;
+    if (!id || id === cfg.buscar || !ids.includes(id)) return;
+
+    const periodo = cfg.periodo && document.getElementById(cfg.periodo);
+    if (id === cfg.periodo) {
+      const rango = rangoDePeriodo(e.target.value);
+      if (rango) {
+        document.getElementById(cfg.desde).value = fechaLocalIso(rango[0]);
+        document.getElementById(cfg.hasta).value = fechaLocalIso(rango[1]);
+      }
+    } else if ((id === cfg.desde || id === cfg.hasta) && periodo) {
+      periodo.value = ""; // fechas a mano = periodo personalizado
+    }
+    aplicar();
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!cfg.limpiar || !e.target.closest("#" + cfg.limpiar)) return;
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    aplicar();
+  });
+
+  return { preparar, aplicar };
 }
 
 // Fechas en hora local (AAAA-MM-DD), no en UTC
@@ -1172,32 +1161,21 @@ function rangoDePeriodo(periodo) {
   }
 }
 
-document.addEventListener("input", function (e) {
-  if (e.target.closest("#buscarExtra")) aplicarFiltrosExtras();
+// Ingresos extras · columnas: 0 Evento · 1 Fecha · 2 Costo · 3 Forma de pago · 4 Acciones
+const filtrosExtras = crearFiltrosTabla({
+  tabla: "tablaExtras", totales: "totalesExtras", etiqueta: "registros",
+  buscar: "buscarExtra", forma: "filtroFormaExtra", periodo: "extraPeriodo",
+  desde: "extraDesde", hasta: "extraHasta", limpiar: "limpiarFiltrosExtras",
+  colTexto: 0, colFecha: 1, colMonto: 2, colForma: 3
 });
+function prepararFiltrosExtras() { filtrosExtras.preparar(); }
 
-document.addEventListener("change", function (e) {
-  const control = e.target.closest("#filtroFormaExtra, #extraDesde, #extraHasta, #extraPeriodo");
-  if (!control) return;
-
-  const periodo = document.getElementById("extraPeriodo");
-  if (control.id === "extraPeriodo") {
-    const rango = rangoDePeriodo(control.value);
-    if (rango) {
-      document.getElementById("extraDesde").value = fechaLocalIso(rango[0]);
-      document.getElementById("extraHasta").value = fechaLocalIso(rango[1]);
-    }
-  } else if ((control.id === "extraDesde" || control.id === "extraHasta") && periodo) {
-    periodo.value = ""; // fechas a mano = periodo personalizado
-  }
-  aplicarFiltrosExtras();
+// Egresos · columnas: 0 Concepto · 1 Monto · 2 Fecha · 3 Acciones (sin forma de pago:
+// todos se registran en efectivo)
+const filtrosEgresos = crearFiltrosTabla({
+  tabla: "tablaEgresos", totales: "totalesEgresos", etiqueta: "egresos",
+  buscar: "buscarEgreso", forma: null, periodo: "egresoPeriodo",
+  desde: "egresoDesde", hasta: "egresoHasta", limpiar: "limpiarFiltrosEgresos",
+  colTexto: 0, colFecha: 2, colMonto: 1, colForma: null
 });
-
-document.addEventListener("click", function (e) {
-  if (!e.target.closest("#limpiarFiltrosExtras")) return;
-  ["buscarExtra", "filtroFormaExtra", "extraDesde", "extraHasta", "extraPeriodo"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  });
-  aplicarFiltrosExtras();
-});
+window.prepararFiltrosEgresos = function () { filtrosEgresos.preparar(); };

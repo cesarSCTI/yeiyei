@@ -19,6 +19,10 @@ class DashboardController extends Controller {
             exit;
         }
 
+        // El estado de cada cliente depende del estado de su último pago:
+        // se pone al día antes de calcular tablas y recuadros (ajuste 21).
+        Pago::sincronizarEstados();
+
         // Datos accesibles a todos
         $clientes       = Cliente::all();
         $instructores   = Instructor::all();

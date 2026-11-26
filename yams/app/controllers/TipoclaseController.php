@@ -26,6 +26,7 @@ class TipoclaseController extends Controller {
     }
 
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if ($_SERVER["REQUEST_METHOD"] === "POST") {
             header('Content-Type: application/json; charset=utf-8');
 
@@ -67,6 +68,7 @@ class TipoclaseController extends Controller {
     }
 
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if ($_SERVER["REQUEST_METHOD"] === "POST") {
             header('Content-Type: application/json; charset=utf-8');
 

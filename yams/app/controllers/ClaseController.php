@@ -44,6 +44,7 @@ class ClaseController extends Controller {
     }
 
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if ($_SERVER["REQUEST_METHOD"] !== "POST") {
             echo json_encode(["ok" => false]);
             return;
@@ -65,6 +66,7 @@ class ClaseController extends Controller {
 
 
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $ok = Clase::delete($_POST["id"]);
         echo json_encode(["ok"=>$ok]);
     }

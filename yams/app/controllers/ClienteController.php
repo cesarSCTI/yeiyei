@@ -54,6 +54,7 @@ class ClienteController extends Controller {
 
     // Actualizar cliente existente
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $id = $_POST["id"] ?? 0;
             $nombre = $_POST["nombre"] ?? '';
@@ -77,6 +78,7 @@ class ClienteController extends Controller {
 
     // Eliminar cliente
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $id = $_POST["id"] ?? 0;
             $ok = Cliente::delete($id);

@@ -93,6 +93,12 @@
     qsa(".nav-link").forEach(link => link.classList.remove("active"));
     if (el) el.classList.add("active");
 
+    // Celular: el menú es una fila deslizable; deja visible la opción activa (ajuste 20)
+    if (el && window.innerWidth < 768) {
+        el.scrollIntoView({ block: "nearest", inline: "center" });
+        window.scrollTo(0, 0);
+    }
+
     // Inicializar calendario si estamos en Clases
     if (section === "clases") {
         setTimeout(() => {
@@ -111,11 +117,8 @@
         }
     }
 
-    // Volver a registrar eventos de Bootstrap (por si el DOM fue reemplazado)
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => modal.addEventListener('shown.bs.modal', () => {
-        document.body.classList.add('modal-open');
-    }));
+    // (Se quitó el registro de 'shown.bs.modal' que se repetía en cada cambio de
+    // sección y acumulaba listeners; Bootstrap ya pone modal-open por sí mismo.)
     };
 
     // =========================
@@ -647,10 +650,8 @@
             )?.closest("tr");
 
             if (row) {
-            const hoy = new Date().toISOString().split("T")[0];
-            const dias = Math.floor(
-                (new Date(pago.proximo_pago) - new Date()) / 86400000
-            );
+            // Días restantes calculados por el servidor (misma regla que la tabla)
+            const dias = parseInt(pago.dias_restantes, 10);
 
             // ✅ Mostrar solo la fecha (sin hora)
             const fechaSolo = pago.fecha_pago.split(" ")[0];
@@ -671,11 +672,10 @@
                     : "bg-warning"
                 }">${pago.estado}</span>
             `;
-            row.querySelector("td:nth-child(6)").textContent = `${dias} días`;
+            row.querySelector("td:nth-child(6)").textContent =
+                isNaN(dias) ? "--" : (dias === 0 ? "Hoy vence" : `${dias} días`);
             row.querySelector("td:nth-child(6)").className =
-                pago.proximo_pago < hoy
-                ? "text-danger fw-bold"
-                : "text-success fw-bold";
+                dias < 0 ? "text-danger fw-bold" : "text-success fw-bold";
 
             // 🔥 Regeneramos la celda de acciones según el estado
             let accionesHTML = `
@@ -735,9 +735,7 @@
             // Cerrar modal
             bootstrap.Modal.getInstance(document.getElementById("modalEditPago")).hide();
             alert("Pago actualizado ✅");
-
-            // 🔄 Recalcular estados y días inmediatamente
-            setTimeout(actualizarEstadosPagos, 500);
+            if (typeof aplicarFiltrosPagos === "function") aplicarFiltrosPagos();
         })
         .catch((err) => {
             console.error("Error en update pago:", err);
@@ -916,6 +914,7 @@
             const doc = new DOMParser().parseFromString(html, "text/html");
             const newBody = doc.querySelector("#tablaEgresos tbody");
             if (newBody) YamsTabla.reemplazarFilas("#tablaEgresos", newBody.innerHTML, { buscador: false });
+            if (typeof prepararFiltrosEgresos === "function") prepararFiltrosEgresos();
         });
     }
 

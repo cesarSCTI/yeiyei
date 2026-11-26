@@ -2,6 +2,31 @@
 require_once "app/core/DB.php";
 
 class Pago {
+    // Regla de estado de un pago según su próximo pago (antes la aplicaba el
+    // navegador fila por fila al abrir Pagos; ver sincronizarEstados()).
+    private const ESTADO_SEGUN_FECHA_SQL = "
+                CASE
+                    WHEN DATEDIFF(proximo_pago, CURDATE()) < 0 THEN 'Vencido'
+                    WHEN DATEDIFF(proximo_pago, CURDATE()) <= 5 THEN 'Por Vencer'
+                    ELSE 'Pagado'
+                END";
+
+    /**
+     * Pone al día el estado de los pagos en una sola consulta (ajuste 21).
+     * Sustituye al recálculo que hacía el navegador sobre miles de filas y a
+     * la petición que enviaba por cada pago que cambiaba. Solo escribe las
+     * filas cuyo estado ya no corresponde a la fecha.
+     */
+    public static function sincronizarEstados(): int {
+        $pdo = DB::pdo();
+        return $pdo->exec("
+            UPDATE pagos
+            SET estado = " . self::ESTADO_SEGUN_FECHA_SQL . "
+            WHERE proximo_pago IS NOT NULL
+              AND NOT (estado <=> " . self::ESTADO_SEGUN_FECHA_SQL . ")
+        ");
+    }
+
     // Obtener todos los pagos con el nombre del cliente
     public static function all() {
         $pdo = DB::pdo();
@@ -14,6 +39,7 @@ class Pago {
                 DATE(p.fecha_pago) AS fecha_pago,
                 p.proximo_pago,
                 p.estado,
+                DATEDIFF(p.proximo_pago, CURDATE()) AS dias_restantes,
                 p.created_at,   
                 c.nombre AS cliente,
                 c.telefono  
