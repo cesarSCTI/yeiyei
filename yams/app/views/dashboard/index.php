@@ -13,8 +13,8 @@
                 <span>Yei Yei Academy</span>
             </a>
             <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="index.php?route=auth/logout">
-                    <i class="fas fa-sign-out-alt me-1"></i> Cerrar Sesión
+                <a class="nav-link" href="index.php?route=auth/logout" title="Cerrar Sesión" aria-label="Cerrar Sesión">
+                    <i class="fas fa-sign-out-alt me-1"></i><span class="d-none d-sm-inline"> Cerrar Sesión</span>
                 </a>
             </div>
         </div>
@@ -214,35 +214,13 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php foreach ($porCobrar as $c):
+                                            <?php foreach ($porCobrar as $c): // filas compactas (ajuste 21)
                                                 $dias = (int)$c['dias_restantes'];
-                                                $estado = $c['estado_pago'];
+                                                $estado = htmlspecialchars($c['estado_pago']);
+                                                $nombre = htmlspecialchars($c['nombre'] ?? '');
+                                                $telefono = htmlspecialchars($c['telefono'] ?? '');
                                             ?>
-                                            <tr>
-                                                <td class="fw-semibold"><?= htmlspecialchars($c['nombre'] ?? '') ?></td>
-                                                <td><?= htmlspecialchars($c['telefono'] ?? '') ?></td>
-                                                <td><?= htmlspecialchars($c['tipo_clase'] ?? '') ?></td>
-                                                <td><?= htmlspecialchars(substr((string)($c['proximo_pago'] ?? ''), 0, 10)) ?></td>
-                                                <td data-order="<?= $dias ?>" class="fw-bold <?= $dias < 0 ? 'text-danger' : 'text-warning' ?>">
-                                                    <?= $dias === 0 ? 'Hoy' : ($dias < 0 ? 'Hace ' . abs($dias) . ' d' : 'En ' . $dias . ' d') ?>
-                                                </td>
-                                                <td data-search="<?= htmlspecialchars($estado) ?>">
-                                                    <span class="badge bg-<?= $estado === 'Vencido' ? 'danger' : 'warning text-dark' ?>"><?= htmlspecialchars($estado) ?></span>
-                                                </td>
-                                                <td class="text-center">
-                                                    <?php if (!empty($c['telefono'])): ?>
-                                                    <button type="button" class="btn btn-sm btn-success btn-reminder"
-                                                            data-telefono="<?= htmlspecialchars($c['telefono']) ?>"
-                                                            data-estado="<?= htmlspecialchars($estado) ?>"
-                                                            data-cliente="<?= htmlspecialchars($c['nombre'] ?? '') ?>"
-                                                            title="Enviar recordatorio por WhatsApp">
-                                                        <i class="fab fa-whatsapp"></i>
-                                                    </button>
-                                                    <?php else: ?>
-                                                    <span class="text-muted small">Sin teléfono</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
+<tr><td class="fw-semibold"><?= $nombre ?></td><td><?= $telefono ?></td><td><?= htmlspecialchars($c['tipo_clase'] ?? '') ?></td><td><?= htmlspecialchars(substr((string)($c['proximo_pago'] ?? ''), 0, 10)) ?></td><td data-order="<?= $dias ?>" class="fw-bold <?= $dias < 0 ? 'text-danger' : 'text-warning' ?>"><?= $dias === 0 ? 'Hoy' : ($dias < 0 ? 'Hace ' . abs($dias) . ' d' : 'En ' . $dias . ' d') ?></td><td data-search="<?= $estado ?>"><span class="badge bg-<?= $c['estado_pago'] === 'Vencido' ? 'danger' : 'warning text-dark' ?>"><?= $estado ?></span></td><td class="text-center"><?php if ($telefono !== ''): ?><button type="button" class="btn btn-sm btn-success btn-reminder" data-telefono="<?= $telefono ?>" data-estado="<?= $estado ?>" data-cliente="<?= $nombre ?>" title="Enviar recordatorio por WhatsApp"><i class="fab fa-whatsapp"></i></button><?php else: ?><span class="text-muted small">Sin teléfono</span><?php endif; ?></td></tr>
                                             <?php endforeach; ?>
                                         </tbody>
                                     </table>
@@ -482,10 +460,12 @@
                         <div class="modal-content">
                             <form id="formIngresoExtra">
                             <div class="modal-header bg-primary text-white">
-                                <h5 class="modal-title"><i class="fas fa-plus"></i> Nuevo Ingreso Extra</h5>
+                                <h5 class="modal-title" id="tituloModalExtra"><i class="fas fa-plus"></i> Nuevo Ingreso Extra</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
+                                <!-- Con id = edición (ajuste 19); vacío = alta -->
+                                <input type="hidden" name="id" id="extraId">
                                 <div class="mb-3">
                                 <label for="evento" class="form-label">Evento</label>
                                 <input type="text" class="form-control" id="evento" name="evento" placeholder="Ej. Fiesta de Fin de Año" required>

@@ -64,6 +64,7 @@ class EgresoController extends Controller {
     }
 
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $this->requireEgresoAccess();
 
         if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -91,6 +92,7 @@ class EgresoController extends Controller {
     }
 
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $this->requireEgresoAccess();
 
         if ($_SERVER["REQUEST_METHOD"] !== "POST") {

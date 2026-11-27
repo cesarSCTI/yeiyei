@@ -30,5 +30,14 @@ if (!isset($_SESSION['user'])) {
     }
 }
 
+// ========= RENDIMIENTO: LIBERAR LA SESIÓN =========
+// PHP bloquea el archivo de sesión hasta que termina cada petición, así que las
+// llamadas en paralelo del mismo usuario (resumen, listas, gráficas) se
+// atendían una tras otra. Fuera de auth/ nadie escribe en la sesión: se cierra
+// aquí y $_SESSION sigue disponible para lectura (ajuste 21).
+if (substr($route, 0, 5) !== 'auth/') {
+    session_write_close();
+}
+
 $router = new Router();
 $router->dispatch();

@@ -36,12 +36,14 @@
                                     </span>
                                 </td>
                                 <td>
+                                    <?php if (yams_puede_modificar()): // ajustes 14 y 15 ?>
                                     <button class="btn btn-sm btn-outline-primary btn-edit-instructor" data-id="<?= $i["id"] ?>">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     <button class="btn btn-sm btn-outline-danger btn-delete-instructor" data-id="<?= $i["id"] ?>">
                                         <i class="fas fa-trash"></i>
                                     </button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -66,6 +68,7 @@
     </button>
   </div>
   <div class="card-body">
+    <div class="table-responsive">
     <table class="table table-striped">
       <thead>
         <tr>
@@ -81,8 +84,10 @@
               <td><?= htmlspecialchars($esp['nombre']) ?></td>
               <td><?= htmlspecialchars($esp['descripcion']) ?></td>
               <td>
+                <?php if (yams_puede_modificar()): // ajustes 14 y 15 ?>
                 <button class="btn btn-sm btn-success btn-edit-especialidad" data-id="<?= $esp['id'] ?>"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-sm btn-danger btn-delete-especialidad" data-id="<?= $esp['id'] ?>"><i class="fas fa-trash"></i></button>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -91,6 +96,7 @@
         <?php endif; ?>
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 

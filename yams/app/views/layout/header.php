@@ -11,7 +11,12 @@
     <!-- FontAwesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
-    <!-- Estilos propios -->
-    <link rel="stylesheet" href="<?= BASE_URL ?>public/css/style.css">
+    <!-- Estilos propios (?v= fecha del archivo: la caché nunca sirve una versión vieja) -->
+    <?php $yamsAsset = fn(string $ruta) => BASE_URL . $ruta . '?v=' . @filemtime(__DIR__ . '/../../../' . $ruta); ?>
+    <link rel="stylesheet" href="<?= $yamsAsset('public/css/style.css') ?>">
 </head>
 <body class="wave-background">
+<script>
+  // Permisos por rol (ajustes 14 y 15): el JS no dibuja botones de editar/eliminar si es false
+  window.YAMS_PUEDE_MODIFICAR = <?= yams_puede_modificar() ? 'true' : 'false' ?>;
+</script>

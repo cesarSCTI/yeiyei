@@ -33,11 +33,13 @@ class ClaseAlumnoController extends Controller {
     }
 
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $ok = ClaseAlumno::update($_POST);
         echo json_encode(["ok"=>$ok]);
     }
 
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $ok = ClaseAlumno::delete($_POST["id"]);
         echo json_encode(["ok"=>$ok]);
     }

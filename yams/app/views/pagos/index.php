@@ -69,66 +69,21 @@
                     </thead>
                     <tbody>
                         <?php if (!empty($pagos)): ?>
-                            <?php foreach($pagos as $p): ?>
-                            <tr class="<?= $p['proximo_pago'] < date('Y-m-d') ? 'payment-expired' : ($p['proximo_pago'] <= date('Y-m-d', strtotime('+3 days')) ? 'payment-due-soon' : 'payment-current') ?>">
-                                <td><?= htmlspecialchars($p['cliente']) ?></td>
-                                <td data-monto="<?= (float)$p['monto'] ?>">$<?= number_format($p['monto'],2) ?></td>
-                                <td><?= $p['fecha_pago'] ?></td>
-                                <td><?= $p['proximo_pago'] ?></td>
-                                <td>
-                                    <span class="badge 
-                                        <?= $p['estado']=='Pagado' ? 'bg-success' : 
-                                            ($p['estado']=='Vencido' ? 'bg-danger' : 'bg-warning') ?>">
-                                        <?= $p['estado'] ?>
-                                    </span>
-                                </td>
-                                <td class="<?= $p['proximo_pago'] < date('Y-m-d') ? 'text-danger fw-bold' : 'text-success fw-bold' ?>">
-                                    <?= (intval((strtotime($p['proximo_pago'])-time())/86400)) ?> días
-                                </td>
-                                <?php $forma = $p['forma_pago'] ?? ''; ?>
-                                <td data-search="<?= htmlspecialchars($forma) ?>">
-                                    <span class="badge yams-forma yams-forma-<?= strtolower(htmlspecialchars($forma)) ?>"><?= htmlspecialchars($forma ?: '—') ?></span>
-                                </td>
-                                <td>
-                                    <!-- Botón verde (editar / marcar pagado) -->
-                                    <button class="btn btn-sm btn-success btn-edit-pago" 
-                                            data-id="<?= $p['id'] ?>" 
-                                            title="Editar / Marcar como Pagado">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-
-                                    <!-- Botón amarillo (recordatorio) -->
-                                    <?php if($p['estado'] == 'Por Vencer' || $p['estado'] == 'Vencido'): ?>
-                                        <button class="btn btn-sm btn-warning btn-reminder" 
-                                                data-id="<?= $p['id'] ?>" 
-                                                data-telefono="<?= htmlspecialchars($p['telefono']) ?>" 
-                                                data-estado="<?= htmlspecialchars($p['estado']) ?>" 
-                                                data-cliente="<?= htmlspecialchars($p['cliente']) ?>"
-                                                title="Enviar Recordatorio">
-                                            <i class="fas fa-envelope"></i>
-                                        </button>
-                                    <?php endif; ?>
-
-                                    <!-- Botón azul (historial) -->
-                                    <?php if($p['estado'] == 'Pagado'): ?>
-                                        <button class="btn btn-sm btn-info btn-historial" 
-                                                data-cliente="<?= $p['cliente_id'] ?>" 
-                                                title="Ver Historial">
-                                            <i class="fas fa-history"></i>
-                                        </button>
-                                    <?php endif; ?>
-
-                                    <button
-                                      type="button"
-                                      class="btn btn-info btn-sm btn-horarios-pago"
-                                      title="Ver días y horarios"
-                                      data-cliente="<?= (int)$p['cliente_id'] ?>"
-                                    >
-                                      <i class="fa fa-clock"></i>
-                                    </button>
-
-                                </td>
-                            </tr>
+                            <?php
+                            // Filas compactas (sin comentarios ni sangría por fila): con miles de
+                            // pagos cada byte se repite miles de veces (ajuste 21).
+                            // Estado y días vienen del servidor (Pago::sincronizarEstados).
+                            $puedeModificar = yams_puede_modificar(); // ajustes 14 y 15
+                            $badgeEstado = ['Pagado' => 'bg-success', 'Vencido' => 'bg-danger'];
+                            foreach ($pagos as $p):
+                                $dias    = $p['dias_restantes'] === null ? null : (int)$p['dias_restantes'];
+                                $estado  = htmlspecialchars($p['estado'] ?? '');
+                                $forma   = htmlspecialchars($p['forma_pago'] ?? '');
+                                $cliente = htmlspecialchars($p['cliente'] ?? '');
+                                $cid     = (int)$p['cliente_id'];
+                                $claseFila = $dias === null ? '' : ($dias < 0 ? 'payment-expired' : ($dias <= 3 ? 'payment-due-soon' : 'payment-current'));
+                            ?>
+<tr class="<?= $claseFila ?>"><td><?= $cliente ?></td><td data-monto="<?= (float)$p['monto'] ?>">$<?= number_format($p['monto'], 2) ?></td><td><?= $p['fecha_pago'] ?></td><td><?= $p['proximo_pago'] ?></td><td><span class="badge <?= $badgeEstado[$p['estado']] ?? 'bg-warning' ?>"><?= $estado ?></span></td><td class="<?= ($dias ?? 0) < 0 ? 'text-danger' : 'text-success' ?> fw-bold"><?= $dias === null ? '--' : ($dias === 0 ? 'Hoy vence' : $dias . ' días') ?></td><td data-search="<?= $forma ?>"><span class="badge yams-forma yams-forma-<?= strtolower($forma) ?>"><?= $forma ?: '—' ?></span></td><td><?php if ($puedeModificar): ?><button class="btn btn-sm btn-success btn-edit-pago" data-id="<?= (int)$p['id'] ?>" title="Editar / Marcar como Pagado"><i class="fas fa-check"></i></button> <?php endif; ?><?php if ($p['estado'] === 'Por Vencer' || $p['estado'] === 'Vencido'): ?><button class="btn btn-sm btn-warning btn-reminder" data-id="<?= (int)$p['id'] ?>" data-telefono="<?= htmlspecialchars($p['telefono'] ?? '') ?>" data-estado="<?= $estado ?>" data-cliente="<?= $cliente ?>" title="Enviar Recordatorio"><i class="fas fa-envelope"></i></button> <?php endif; ?><?php if ($p['estado'] === 'Pagado'): ?><button class="btn btn-sm btn-info btn-historial" data-cliente="<?= $cid ?>" title="Ver Historial"><i class="fas fa-history"></i></button> <?php endif; ?><button type="button" class="btn btn-info btn-sm btn-horarios-pago" title="Ver días y horarios" data-cliente="<?= $cid ?>"><i class="fa fa-clock"></i></button></td></tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
@@ -325,20 +280,8 @@
             </tr>
           </thead>
           <tbody id="clientesBody">
-            <?php foreach($clientes as $c): ?>
-              <tr>
-                <td><?= $c['id'] ?></td>
-                <td><?= htmlspecialchars($c['nombre']) ?></td>
-                <td><?= htmlspecialchars($c['telefono']) ?></td>
-                <td><?= htmlspecialchars($c['tipo_clase']) ?></td>
-                <td>
-                  <button type="button" class="btn btn-sm btn-primary seleccionar-cliente"
-                          data-id="<?= $c['id'] ?>"
-                          data-nombre="<?= htmlspecialchars($c['nombre']) ?>">
-                    <i class="fas fa-check"></i> Seleccionar
-                  </button>
-                </td>
-              </tr>
+            <?php foreach ($clientes as $c): $nombre = htmlspecialchars($c['nombre'] ?? ''); // filas compactas (ajuste 21) ?>
+<tr><td><?= (int)$c['id'] ?></td><td><?= $nombre ?></td><td><?= htmlspecialchars($c['telefono'] ?? '') ?></td><td><?= htmlspecialchars($c['tipo_clase'] ?? '') ?></td><td><button type="button" class="btn btn-sm btn-primary seleccionar-cliente" data-id="<?= (int)$c['id'] ?>" data-nombre="<?= $nombre ?>"><i class="fas fa-check"></i> Seleccionar</button></td></tr>
             <?php endforeach; ?>
           </tbody>
         </table>

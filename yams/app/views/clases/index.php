@@ -131,8 +131,10 @@ document.addEventListener('DOMContentLoaded', function() {
           <td><?= $c["hora_inicio"] ?> - <?= $c["hora_fin"] ?></td>
           <td><?= $c["estado"] ?></td>
           <td>
+            <?php if (yams_puede_modificar()): ?>
             <button class="btn btn-sm btn-success btn-edit-clase" data-id="<?= $c['id'] ?>"><i class="fas fa-edit"></i></button>
             <button class="btn btn-sm btn-danger btn-delete-clase" data-id="<?= $c['id'] ?>"><i class="fas fa-trash"></i></button>
+            <?php endif; ?>
             <a href="index.php?route=clasealumno/index&clase_id=<?= $c['id'] ?>" class="btn btn-sm btn-info"><i class="fas fa-users"></i> Alumnos</a>
           </td>
         </tr>
@@ -302,20 +304,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </tr>
           </thead>
           <tbody id="clientesClaseBody">
-            <?php foreach($clientes as $c): ?>
-              <tr>
-                <td><?= $c['id'] ?></td>
-                <td><?= htmlspecialchars($c['nombre']) ?></td>
-                <td><?= htmlspecialchars($c['telefono']) ?></td>
-                <td><?= htmlspecialchars($c['tipo_clase']) ?></td>
-                <td>
-                  <button type="button" class="btn btn-sm btn-primary seleccionar-cliente-clase"
-                          data-id="<?= $c['id'] ?>"
-                          data-nombre="<?= htmlspecialchars($c['nombre']) ?>">
-                    <i class="fas fa-check"></i> Seleccionar
-                  </button>
-                </td>
-              </tr>
+            <?php foreach ($clientes as $c): $nombre = htmlspecialchars($c['nombre'] ?? ''); // filas compactas (ajuste 21) ?>
+<tr><td><?= (int)$c['id'] ?></td><td><?= $nombre ?></td><td><?= htmlspecialchars($c['telefono'] ?? '') ?></td><td><?= htmlspecialchars($c['tipo_clase'] ?? '') ?></td><td><button type="button" class="btn btn-sm btn-primary seleccionar-cliente-clase" data-id="<?= (int)$c['id'] ?>" data-nombre="<?= $nombre ?>"><i class="fas fa-check"></i> Seleccionar</button></td></tr>
             <?php endforeach; ?>
           </tbody>
         </table>

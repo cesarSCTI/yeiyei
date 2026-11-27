@@ -473,3 +473,90 @@ body.wave-background {
     .yams-total { flex: 1 1 45%; }
     .yams-total-total { margin-left: 0; flex-basis: 100%; }
 }
+
+
+/* =====================================================================
+   ADAPTACIÓN RESPONSIVA (ajuste 20)
+   Celular (< 576 px), celular grande y tableta (< 992 px) y escritorio.
+   ===================================================================== */
+
+/* Botones de acción de las tablas siempre en una sola línea */
+.content-area .table td:last-child { white-space: nowrap; }
+
+/* Tableta: menú lateral más angosto para dejar espacio a las tablas */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .sidebar .nav-link { padding: 12px 14px; font-size: 0.92rem; }
+    .content-area { padding: 1.25rem; }
+    .finance-cards h4 { font-size: 1.2rem; }
+}
+
+/* Celular y tableta vertical */
+@media (max-width: 767.98px) {
+    /* Barra superior en una sola línea */
+    .navbar > .container-fluid { flex-wrap: nowrap; }
+    .navbar-brand { font-size: 1.15rem; margin-right: 0.5rem; }
+    .navbar .navbar-nav { flex-direction: row; }
+
+    /* Menú: una sola fila deslizable que se queda arriba al hacer scroll */
+    .col-md-3:has(> .sidebar) {
+        position: sticky;
+        top: 0;
+        z-index: 1020;
+    }
+    .sidebar .nav {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .sidebar .nav::-webkit-scrollbar { display: none; }
+    .sidebar .nav-link { white-space: nowrap; flex: 0 0 auto; }
+    .sidebar .nav-link:hover { transform: none; }
+
+    .yams-page-title { font-size: 1.35rem; margin-bottom: 0.9rem; }
+    .yams-panel-header { padding: 0.75rem 0.9rem; }
+    .card-body { padding: 0.9rem; }
+
+    /* Modales a casi todo el ancho */
+    .modal-dialog { margin: 0.5rem; }
+}
+
+/* Celular: tarjetas de resumen de dos en dos en lugar de una por renglón */
+@media (max-width: 575.98px) {
+    #dashboardContent > .row:first-of-type > [class*="col-"],
+    .finance-cards > [class*="col-"] {
+        flex: 0 0 50%;
+        max-width: 50%;
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+    #dashboardContent > .row:first-of-type,
+    .finance-cards { margin-left: -6px; margin-right: -6px; }
+    .finance-cards { margin-bottom: 0.75rem !important; }
+
+    .dashboard-stat { padding: 1rem 0.5rem; }
+    .dashboard-stat i { font-size: 1.1rem; }
+    .animate-number { font-size: 1.5rem; }
+    .dashboard-stat p { font-size: 0.85rem; line-height: 1.2; }
+
+    .card-finanza .card-body { padding: 0.75rem 0.5rem; }
+    .card-finanza h6 { font-size: 0.8rem; margin-bottom: 0.25rem; }
+    .card-finanza h4 { font-size: 1.05rem; margin: 0; }
+
+    /* Botón principal del panel a todo el ancho */
+    .yams-panel-header > .btn { width: 100%; }
+    .btn-primary { padding: 10px 18px; }
+}
+
+/* Pagos y Egresos traen su propio container-fluid p-3: sin esto tenían margen
+   doble y no se alineaban con las demás secciones (ajuste 20) */
+.content-area > div > .container-fluid.p-3 { padding: 0 !important; }
+
+@media (max-width: 767.98px) {
+    /* Desvanecido a la derecha: indica que el menú se puede deslizar */
+    .sidebar .nav {
+        -webkit-mask-image: linear-gradient(to right, #000 85%, transparent);
+        mask-image: linear-gradient(to right, #000 85%, transparent);
+        padding-right: 1.5rem;
+    }
+}

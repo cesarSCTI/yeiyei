@@ -176,10 +176,50 @@ class FinanzasController extends Controller {
     }
 
     /**
+     * Editar un ingreso extra, solo Administrador (ajuste 19)
+     * Ruta: index.php?route=finanzas/extrasUpdate
+     */
+    public function extrasUpdate() {
+        $this->soloAdministrador(); // ajustes 14 y 15
+
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            $this->json(["ok" => false, "msg" => "Método no permitido"]);
+        }
+
+        $id        = (int)($_POST["id"] ?? 0);
+        $evento    = trim($_POST["evento"]     ?? "");
+        $fecha     = trim($_POST["fecha"]      ?? "");
+        $costo     = trim($_POST["costo"]      ?? "");
+        $formaPago = trim($_POST["forma_pago"] ?? "");
+
+        $fechaValida = DateTime::createFromFormat("Y-m-d", $fecha);
+        if ($id <= 0 || $evento === "" || !$fechaValida || $fechaValida->format("Y-m-d") !== $fecha
+            || !is_numeric($costo) || (float)$costo < 0
+            || !in_array($formaPago, ["Efectivo", "Tarjeta", "Transferencia"], true)) {
+            $this->json(["ok" => false, "msg" => "Revisa los datos del ingreso extra"]);
+        }
+
+        if (!IngresoExtra::find($id)) {
+            $this->json(["ok" => false, "msg" => "El ingreso extra ya no existe"]);
+        }
+
+        $ok = IngresoExtra::update([
+            "id"         => $id,
+            "evento"     => $evento,
+            "fecha"      => $fecha,
+            "costo"      => $costo,
+            "forma_pago" => $formaPago
+        ]);
+
+        $this->json(["ok" => (bool)$ok, "ingreso" => $ok ? IngresoExtra::find($id) : null]);
+    }
+
+    /**
      * Eliminar un ingreso extra
      * Ruta: index.php?route=finanzas/extrasDelete
      */
     public function extrasDelete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if (!isset($_SESSION["user"])) {
             echo json_encode(["ok" => false, "msg" => "No autorizado"]);
             exit;

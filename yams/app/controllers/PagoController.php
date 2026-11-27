@@ -9,6 +9,7 @@ class PagoController extends Controller {
             header('Location: index.php?route=auth/login'); 
             exit; 
         }
+        Pago::sincronizarEstados();
         $pagos = Pago::all();
         $this->view('pagos/index', ['pagos'=>$pagos]);
     }
@@ -16,6 +17,7 @@ class PagoController extends Controller {
     public function store() {
         if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $ok = Pago::create($_POST);
+            if ($ok) Pago::sincronizarEstados(); // el estado lo dicta la fecha del próximo pago
 
             // Obtenemos el resumen actualizado
             $ingresos = Pago::sumThisMonth();
@@ -78,6 +80,7 @@ class PagoController extends Controller {
     }
 
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $data = $_POST;
 
         // Si es una actualización automática (estado/días)
@@ -90,8 +93,9 @@ class PagoController extends Controller {
         $ok = Pago::update($data);
 
         if ($ok) {
+            Pago::sincronizarEstados(); // el estado lo dicta la fecha del próximo pago
             $pdo = DB::pdo();
-            $stmt = $pdo->prepare("SELECT p.*, c.nombre AS cliente, c.telefono 
+            $stmt = $pdo->prepare("SELECT p.*, DATEDIFF(p.proximo_pago, CURDATE()) AS dias_restantes, c.nombre AS cliente, c.telefono 
                                 FROM pagos p 
                                 LEFT JOIN clientes c ON p.cliente_id=c.id 
                                 WHERE p.id=:id");

@@ -23,8 +23,10 @@
           <td><?= $a["cliente"] ?></td>
           <td><?= $a["estado"] ?></td>
           <td>
+            <?php if (yams_puede_modificar()): ?>
             <button class="btn btn-sm btn-success btn-edit-clasealumno" data-id="<?= $a['id'] ?>"><i class="fas fa-edit"></i></button>
             <button class="btn btn-sm btn-danger btn-delete-clasealumno" data-id="<?= $a['id'] ?>"><i class="fas fa-trash"></i></button>
+            <?php endif; ?>
           </td>
         </tr>
         <?php endforeach; ?>

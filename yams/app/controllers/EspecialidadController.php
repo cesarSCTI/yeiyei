@@ -14,11 +14,13 @@ class EspecialidadController extends Controller {
     }
 
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $ok = Especialidad::update($_POST);
         echo json_encode(["ok" => $ok]);
     }
 
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         $ok = Especialidad::delete($_POST['id']);
         echo json_encode(["ok" => $ok]);
     }

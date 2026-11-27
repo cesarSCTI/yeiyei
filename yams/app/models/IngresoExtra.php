@@ -60,6 +60,40 @@ class IngresoExtra
         ]);
     }
 
+    // Buscar un ingreso extra por id
+    public static function find($id)
+    {
+        $pdo = DB::pdo();
+        $stmt = $pdo->prepare("
+            SELECT id, evento, fecha, costo, forma_pago
+            FROM ingresos_extras
+            WHERE id = :id
+        ");
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    // Editar ingreso extra (ajuste 19)
+    public static function update($data)
+    {
+        $pdo = DB::pdo();
+        $stmt = $pdo->prepare("
+            UPDATE ingresos_extras
+            SET evento = :evento,
+                fecha = :fecha,
+                costo = :costo,
+                forma_pago = :forma_pago
+            WHERE id = :id
+        ");
+        return $stmt->execute([
+            'evento'     => $data['evento'],
+            'fecha'      => $data['fecha'],
+            'costo'      => $data['costo'],
+            'forma_pago' => $data['forma_pago'],
+            'id'         => $data['id'],
+        ]);
+    }
+
     // Eliminar ingreso extra
     public static function delete($id)
     {

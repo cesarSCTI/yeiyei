@@ -30,6 +30,7 @@ class InstructorController extends Controller {
     }
 
     public function update() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $id = $_POST["id"];
             $nombre = $_POST["nombre"];
@@ -43,6 +44,7 @@ class InstructorController extends Controller {
     }
 
     public function delete() {
+        $this->soloAdministrador(); // ajustes 14 y 15
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER["REQUEST_METHOD"] !== "POST") {
